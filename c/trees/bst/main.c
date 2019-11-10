@@ -6,13 +6,11 @@ int main(int argc, char **argv)
   bintree_t *bt;
   init(&bt);
 
-  bt->head = NULL;
-
   node_t *n1 = new_node(21, "root right");
   node_t *n2 = new_node(17, "root left");
   node_t *n3 = new_node(18, "root left right");
   node_t *n4 = new_node(20, "root right left");
-  
+
   insert(bt, new_node(19, "root"));
   insert(bt, n1);
   insert(bt, n3);
