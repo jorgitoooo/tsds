@@ -1,4 +1,5 @@
-#include "bintree.h"
+#include "./headers/bintree.h"
+#include "./headers/utils.h"
 
 int main(int argc, char **argv)
 {
