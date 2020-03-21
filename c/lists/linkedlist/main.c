@@ -5,9 +5,9 @@ int
 main(int argc, char ** argv)
 {
   int i;
-  for (i = 1; i <= 2; i++)
+  for (i = 0; i <= 2; i++)
   {
-    order_type order = i == 1 ? ASC : DESC;
+    order_type order = (order_type) i;
 
     llnode_t * n0 = create_node(0);
     llnode_t * n1 = create_node(5);
