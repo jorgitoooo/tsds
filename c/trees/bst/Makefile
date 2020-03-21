@@ -3,4 +3,4 @@ target:
 memtest: target
 	valgrind --leak-check=full ./exec
 clean:
-	rm exec
+	rm -rf exec*
