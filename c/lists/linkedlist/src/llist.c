@@ -66,13 +66,13 @@ delete_node(llist_t * list, int data)
 {
   if (list)
   {
-    llnode_t * del_node = extract_node(list, data);
+    llnode_t * extracted_node = extract_node(list, data);
 
-    if (del_node)
+    if (extracted_node)
     {
-      printf("Deleting node with data %d\n", del_node->data);
+      printf("Deleting node with data %d\n", extracted_node->data);
       list->sz--;
-      free(del_node);
+      free(extracted_node);
     }
   }
 }
@@ -100,10 +100,14 @@ extract_node(llist_t * list, int data)
   while (prev_node->next && prev_node->next->data != data)
     prev_node = prev_node->next;
 
+  llnode_t * extracted_node = prev_node->next;
   if (prev_node->next && prev_node->next->data == data)
-  {
-  }
-  return prev_node;
+    prev_node->next = prev_node->next->next;
+
+  if (extracted_node == list->tail) /* Handles case where extracted node is TAIL */
+    list->tail = prev_node;
+
+  return extracted_node;
 }
 
 /*************************************/

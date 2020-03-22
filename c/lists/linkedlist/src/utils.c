@@ -19,9 +19,10 @@ print(llist_t * list)
     llnode_t * cur = list->head;
     while (cur)
     {
-      printf("%d%s", cur->data, cur->next ? ", " : "]\n");
+      printf("%d%s", cur->data, cur->next ? ", " : "");
       cur = cur->next;
     }
+    puts("]\n");
   }
 }
 
@@ -29,7 +30,7 @@ void
 print_node(llnode_t * node)
 {
   if (node)
-    printf("Node {\n  data: %d,\n  next: %p\n }\n", node->data, node->next);
+    printf("Node {\n  address: %p,\n  data: %d,\n  next: %p\n }\n", node, node->data, node->next);
   else
     printf("NULL\n");
 }
