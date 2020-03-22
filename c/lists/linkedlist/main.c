@@ -18,26 +18,20 @@ main(int argc, char ** argv)
     llnode_t * n6 = create_node(0);
     llnode_t * n7 = create_node(17);
 
-    llist_t list;
+    llist_t * list = (llist_t *) malloc(sizeof(llist_t));
 
-    init(&list, order);
+    init_with_order(list, order);
 
-    insert_node(&list, n4);
-    insert_node(&list, n1);
-    insert_node(&list, n2);
+    insert_node(list, n4);
+    insert_node(list, n1);
+    insert_node(list, n2);
+    insert_node(list, n3);
+    insert_node(list, n0);
+    insert_node(list, n5);
+    insert_node(list, n6);
+    insert_node(list, n7);
 
-    print(&list);
-
-    insert_node(&list, n3);
-    insert_node(&list, n0);
-    insert_node(&list, n5);
-
-    print(&list);
-
-    insert_node(&list, n6);
-    insert_node(&list, n7);
-
-    print(&list);
+    print(list);
 
     puts("");
   }

@@ -1,14 +1,18 @@
+#include <stdio.h>
+
 #include "../headers/llist.h"
+#include "../headers/utils.h"
 
 #ifndef NULL
 #define NULL (void *)0
 #endif
 
 /* Helper functions */
-void insert(llist_t * list, llnode_t * node);
 void insert_node_asc(llist_t * list, llnode_t * node);
 void insert_node_desc(llist_t * list, llnode_t * node);
-llnode_t * get_prev_of_node_with_data(llist_t * list, int data);
+void insert_node_unordered(llist_t * list, llnode_t * node);
+llnode_t * get_prev_node(llist_t * list, int data);
+llnode_t * extract_node(llist_t * list, int data);
 
 
 /*************************************/
@@ -24,12 +28,18 @@ create_node(int data)
 }
 
 void 
-init(llist_t * list, order_type order)
+init(llist_t * list)
 {
   list->head = NULL;
   list->tail = NULL;
-  list->order = order;
   list->sz = 0;
+}
+
+void 
+init_with_order(llist_t * list, order_type order)
+{
+  init(list);
+  list->order = order;
 }
 
 void
@@ -44,43 +54,66 @@ insert_node(llist_t * list, llnode_t * node)
       insert_node_desc(list, node);
 
     else
-      insert(list, node);
+      insert_node_unordered(list, node);
+
+    list->sz++;
   }
 }
 
 void
-delete_node_with_data(llist_t * list, int data)
+delete_node(llist_t * list, int data)
 // Deletes first node containing data
 {
-/*
-    llnode_t * prev_node = get_prev_of_node_with_data(list, data);
-    llnode_t * del_node = get_node_with_data(list, data);
-    llnode_t * next_node;
+  if (list)
+  {
+    llnode_t * del_node = extract_node(list, data);
 
     if (del_node)
-    // Edge cases:
-    // 1. del_node = HEAD
-    // 2. del_node = TAIL
     {
-      next_node = del_node->next;
-
-      if (prev_node == NULL) / Node to be deleted is HEAD /
-      {
-        
-      }
-      else if (next_node == NULL) / Node to be deleted is TAIL /
-      {
-
-      }
+      printf("Deleting node with data %d\n", del_node->data);
+      list->sz--;
+      free(del_node);
     }
-*/
+  }
+}
+
+// TODO : Not done
+llnode_t *
+extract_node(llist_t * list, int data)
+{
+  llnode_t * prev_node = list->head;
+
+  if (list->head == NULL)
+    return NULL;
+
+  if (list->head->data == data) /* Checks if HEAD is node to remove */
+  {
+    if (list->sz == 1)
+      list->head = list->tail = NULL;
+
+    else
+      list->head = list->head->next;
+
+    return prev_node;
+  }
+
+  while (prev_node->next && prev_node->next->data != data)
+    prev_node = prev_node->next;
+
+  if (prev_node->next && prev_node->next->data == data)
+  {
+  }
+  return prev_node;
 }
 
 /*************************************/
 /********* Helper Functions **********/ 
 /*************************************/
 void
-insert(llist_t * list, llnode_t * node)
+insert_node_unordered(llist_t * list, llnode_t * node)
+// Appends node to end of linked list.
+// This function should not be called if list or node
+// are NULL.
 {
   if (list->sz == 0) /* list is empty */
     list->head = list->tail = node;
@@ -90,14 +123,16 @@ insert(llist_t * list, llnode_t * node)
     list->tail->next = node;
     list->tail = node;
   }
-  list->sz++;
 }
 
 void
 insert_node_asc(llist_t * list, llnode_t * node)
+// Inserts node into linked list in ascending order.
+// This function should not be called if list or node
+// are NULL.
 {
   int data = node->data;
-  llnode_t * prev_node = get_prev_of_node_with_data(list, data);
+  llnode_t * prev_node = get_prev_node(list, data);
 
   if (prev_node == NULL) /* Node to insert will be new HEAD */
   {
@@ -119,14 +154,16 @@ insert_node_asc(llist_t * list, llnode_t * node)
       prev_node->next = node;
     }
   }
-  list->sz++;
 }
 
 void
 insert_node_desc(llist_t * list, llnode_t * node)
+// Inserts node into linked list in descending order
+// This function should not be called if list or node
+// are NULL.
 {
   int data = node->data;
-  llnode_t * prev_node = get_prev_of_node_with_data(list, data);
+  llnode_t * prev_node = get_prev_node(list, data);
 
   if (prev_node == NULL) /* Node to insert will be new HEAD */
   {
@@ -148,31 +185,37 @@ insert_node_desc(llist_t * list, llnode_t * node)
       prev_node->next = node;
     }
   }
-  list->sz++;
 }
 
 llnode_t *
-get_prev_of_node_with_data(llist_t * list, int data)
+get_prev_node(llist_t * list, int data)
 {
   llnode_t * res = NULL;
-  if (list->order == ASC)
+  llnode_t * head = list->head;
+  if (head)
   {
-    res = list->head;
-    if (res == NULL || res->data > data)
-      return NULL;
-
-    while (res->next && res->next->data <= data)
-      res = res->next;
+    if (list->order == ASC &&
+        head->data <= data)
+    {
+      res = head;
+      while (res->next && res->next->data <= data)
+        res = res->next;
+    }
+    else if (list->order == DESC &&
+             head->data >= data)
+    {
+      res = head;
+      while (res->next && res->next->data >= data)
+        res = res->next;
+    }
+    else if (list->order == NONE &&
+             head->data != data)
+    {
+      res = head;
+      while (res->next && res->next->data != data)
+        res = res->next;
+    }
   }
-  else if (list->order == DESC)
-  {
-    res = list->head;
-    if (res == NULL || res->data < data)
-      return NULL;
 
-    while (res->next && res->next->data >= data)
-      res = res->next;
-  }
   return res;
 }
-

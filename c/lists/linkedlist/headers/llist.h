@@ -23,9 +23,10 @@ struct llnode_t
   llnode_t * next;
 };
 
-void init(llist_t * list, order_type order);
+void init(llist_t * list);
+void init_with_order(llist_t * list, order_type order);
 void insert_node(llist_t * list, llnode_t * node);
-void delete_node_with_data(llist_t * list, int data);
+void delete_node(llist_t * list, int data);
 
 llnode_t * create_node(int data);
 

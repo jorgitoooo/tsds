@@ -24,3 +24,24 @@ print(llist_t * list)
     }
   }
 }
+
+void
+print_node(llnode_t * node)
+{
+  if (node)
+    printf("Node {\n  data: %d,\n  next: %p\n }\n", node->data, node->next);
+  else
+    printf("NULL\n");
+}
+
+void
+print_state(llist_t * list)
+{
+  if (list)
+    //printf("List {\n head: %p,\n tail: %p,\n sz: %zu\n}\n", list->head, list->tail, list->sz);
+    printf("List {\n head: ");
+    print_node(list->head);
+    printf(" tail: ");
+    print_node(list->tail);
+    printf(" sz: %zu\n}\n", list->sz);
+}
