@@ -3,21 +3,17 @@
 #include "../headers/llist.h"
 #include "../headers/utils.h"
 
-#ifndef NULL
-#define NULL (void *)0
-#endif
-
 /* Helper functions */
-void insert_node_asc(llist_t * list, llnode_t * node);
-void insert_node_desc(llist_t * list, llnode_t * node);
-void insert_node_unordered(llist_t * list, llnode_t * node);
-llnode_t * get_prev_node(llist_t * list, int data);
-llnode_t * extract_node(llist_t * list, int data);
+static void insert_node_asc(llist_t * list, llnode_t * node);
+static void insert_node_desc(llist_t * list, llnode_t * node);
+static void insert_node_unordered(llist_t * list, llnode_t * node);
+static llnode_t * get_prev_node(llist_t * list, int data);
+static llnode_t * extract_node(llist_t * list, int data);
 
 
-/*************************************/
-/******* Function Definitions ********/ 
-/*************************************/
+/*-----------------------------------*/
+/* Function Definitions              */
+/*-----------------------------------*/
 llnode_t *
 create_node(int data)
 {
@@ -77,8 +73,7 @@ delete_node(llist_t * list, int data)
   }
 }
 
-// TODO : Not done
-llnode_t *
+static llnode_t *
 extract_node(llist_t * list, int data)
 {
   llnode_t * prev_node = list->head;
@@ -110,10 +105,10 @@ extract_node(llist_t * list, int data)
   return extracted_node;
 }
 
-/*************************************/
-/********* Helper Functions **********/ 
-/*************************************/
-void
+/*-----------------------------------*/
+/* Helper Functions                  */ 
+/*-----------------------------------*/
+static void
 insert_node_unordered(llist_t * list, llnode_t * node)
 // Appends node to end of linked list.
 // This function should not be called if list or node
@@ -129,7 +124,7 @@ insert_node_unordered(llist_t * list, llnode_t * node)
   }
 }
 
-void
+static void
 insert_node_asc(llist_t * list, llnode_t * node)
 // Inserts node into linked list in ascending order.
 // This function should not be called if list or node
@@ -160,7 +155,7 @@ insert_node_asc(llist_t * list, llnode_t * node)
   }
 }
 
-void
+static void
 insert_node_desc(llist_t * list, llnode_t * node)
 // Inserts node into linked list in descending order
 // This function should not be called if list or node
@@ -191,7 +186,7 @@ insert_node_desc(llist_t * list, llnode_t * node)
   }
 }
 
-llnode_t *
+static llnode_t *
 get_prev_node(llist_t * list, int data)
 {
   llnode_t * res = NULL;

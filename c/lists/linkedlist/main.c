@@ -38,7 +38,6 @@ main(int argc, char ** argv)
   delete_node(&list, 13);
   print(&list);
   delete_node(&list, 14);
-  print(&list);
   delete_node(&list, 0);
   print(&list);
   delete_node(&list, 17);
