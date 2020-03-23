@@ -1,10 +1,42 @@
 CC = gcc  
 CFlags = -ggdb -pthread -Wall 
-EXEC = exec
+DL_FLAGS = -lcheck
 
-target:
-	$(CC) $(CFLAGS) main.c ./src/* -o $(EXEC)
-memtest: target
+EXEC = exec
+CHECK_EXEC = check_llist
+
+LIB_OBJS = llist.o utils.o
+OBJS = main.o $(LIB_OBJS)
+CHECK_OBJS = check_llist.o $(LIB_OBJS)
+ALL_OBJS = main.o check_llist.o $(LIB_OBJS)
+
+SRC_DIR_PATH = ./src
+TEST_DIR_PATH = ./tests
+
+$(EXEC): $(OBJS)
+	$(CC) $(CFLAGS) -o $(EXEC) $(OBJS)
+
+main.o: main.c
+	$(CC) $(CFLAGS) -c main.c
+
+llist.o: $(SRC_DIR_PATH)/llist.c
+	$(CC) $(CFLAGS) -c $(SRC_DIR_PATH)/llist.c
+
+utils.o: $(SRC_DIR_PATH)/utils.c
+	$(CC) $(CFLAGS) -c $(SRC_DIR_PATH)/utils.c
+
+# Unit Test Build
+check: $(CHECK_OBJS)
+	$(CC) $(CFLAGS) $(DL_FLAGS) -o $(CHECK_EXEC) $(CHECK_OBJS) 
+
+check_llist.o: $(TEST_DIR_PATH)/check_llist.c
+	$(CC) $(CFLAGS) -c $(TEST_DIR_PATH)/check_llist.c
+
+# Memory Tests
+memtest: $(EXEC)
 	valgrind --leak-check=full $(EXEC)
+
+# The hyphen is used to ignore errors in commands
+# https://stackoverflow.com/questions/2670130/make-how-to-continue-after-a-command-fails
 clean:
-	rm -rf $(EXEC)*
+	-rm $(EXEC) $(CHECK_EXEC) $(ALL_OBJS)
