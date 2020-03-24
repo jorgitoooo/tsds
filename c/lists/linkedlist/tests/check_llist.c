@@ -24,7 +24,7 @@ teardown(void)
  * size after insertion and deletion
  * operations
  */
-START_TEST (llist_size_test)
+START_TEST(llist_size_test)
 { 
   llnode_t * n0 = llnode_create(0);
   llnode_t * n1 = llnode_create(1);
@@ -113,13 +113,36 @@ START_TEST(llist_head_tail_test)
   /* head - tail */
 
   llist_delete(list, n_3->data);
-  ck_assert_ptr_eq(list->head, NULL);
-  ck_assert_ptr_eq(list->tail, NULL);
+  ck_assert_ptr_null(list->head);
+  ck_assert_ptr_null(list->tail);
   /*     [ ]     */
   /*      |      */
   /* head - tail */
 }
 END_TEST 
+
+START_TEST(llist_index_into_list_test)
+{
+  int const NUM_LLNODES = 5;
+  llnode_t * nodes[NUM_LLNODES];
+
+  /* Changed order to ascending */
+  list->order = ASC;
+
+  int i;
+  for (i = 0; i < NUM_LLNODES; i++)
+  {
+    nodes[i] = llnode_create(i);
+    llist_insert(list, nodes[i]);
+  }
+
+  for (i = 0; i < NUM_LLNODES; i++)
+    ck_assert_ptr_eq(llist_at(list, i), nodes[i]);
+
+  ck_assert_ptr_null(llist_at(list, -1));
+  ck_assert_ptr_null(llist_at(list, NUM_LLNODES));
+}
+END_TEST
 
 Suite * 
 llist_suite(void)
@@ -134,6 +157,7 @@ llist_suite(void)
 
   tcase_add_test(tc_core, llist_size_test);
   tcase_add_test(tc_core, llist_head_tail_test);
+  tcase_add_test(tc_core, llist_index_into_list_test);
   suite_add_tcase(suite, tc_core);
 
   return suite;
