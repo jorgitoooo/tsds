@@ -10,13 +10,13 @@ llist_t * list;
 void
 setup(void)
 {
-  list = create_llist();
+  list = llist_create();
 }
 
 void
 teardown(void)
 {
-  free_llist(list);
+  llist_free(list);
 }
 
 /* Tests for correct incrementing 
@@ -26,48 +26,43 @@ teardown(void)
  */
 START_TEST (llist_size_test)
 { 
-  llnode_t * n0;
-  llnode_t * n1;
-  llnode_t * n2;
-  llnode_t * n3;
+  llnode_t * n0 = llnode_create(0);
+  llnode_t * n1 = llnode_create(1);
+  llnode_t * n2 = llnode_create(4);
+  llnode_t * n3 = llnode_create(-8);
 
   ck_assert_uint_eq(list->sz, 0);
 
-  n0 = create_llnode(0);
-  n1 = create_llnode(1);
-  n2 = create_llnode(4);
-  n3 = create_llnode(-8);
-
-  insert_llnode(list, n0);
-  insert_llnode(list, n1);
+  llist_insert(list, n0);
+  llist_insert(list, n1);
   ck_assert_uint_eq(list->sz, 2);
 
-  insert_llnode(list, n2);
-  insert_llnode(list, n3);
+  llist_insert(list, n2);
+  llist_insert(list, n3);
   ck_assert_uint_eq(list->sz, 4);
 
-  delete_llnode(list, 1);
+  llist_delete(list, 1);
   ck_assert_uint_eq(list->sz, 3);
 
-  delete_llnode(list, 1);
+  llist_delete(list, 1);
   ck_assert_uint_eq(list->sz, 3);
 
-  delete_llnode(list, 4);
+  llist_delete(list, 4);
   ck_assert_uint_eq(list->sz, 2);
 
-  delete_llnode(list, 2);
+  llist_delete(list, 2);
   ck_assert_uint_eq(list->sz, 2);
 
-  delete_llnode(list, -8);
+  llist_delete(list, -8);
   ck_assert_uint_eq(list->sz, 1);
 
-  delete_llnode(list, 0);
+  llist_delete(list, 0);
   ck_assert_uint_eq(list->sz, 0);
 
-  delete_llnode(list, 1);
+  llist_delete(list, 1);
   ck_assert_uint_eq(list->sz, 0);
 
-  delete_llnode(list, 4);
+  llist_delete(list, 4);
   ck_assert_uint_eq(list->sz, 0);
 }
 END_TEST
@@ -79,15 +74,15 @@ END_TEST
  */
 START_TEST(llist_head_tail_test)
 {
-  llnode_t * n_0= create_llnode(0);
-  llnode_t * n_3 = create_llnode(3);
-  llnode_t * n_295 = create_llnode(295);
-  llnode_t * n_38= create_llnode(38);
+  llnode_t * n_0   = llnode_create(0);
+  llnode_t * n_3   = llnode_create(3);
+  llnode_t * n_295 = llnode_create(295);
+  llnode_t * n_38  = llnode_create(38);
 
-  insert_llnode(list, n_0);
-  insert_llnode(list, n_3);
-  insert_llnode(list, n_295);
-  insert_llnode(list, n_38);
+  llist_insert(list, n_0);
+  llist_insert(list, n_3);
+  llist_insert(list, n_295);
+  llist_insert(list, n_38);
   /* [0, 3, 295, 38]  */
 
   ck_assert_ptr_eq(list->head, n_0);
@@ -96,28 +91,28 @@ START_TEST(llist_head_tail_test)
   /*  |          |    */
   /*  head       tail */
 
-  delete_llnode(list, n_0->data);
+  llist_delete(list, n_0->data);
   ck_assert_ptr_eq(list->head, n_3);
   ck_assert_ptr_eq(list->tail, n_38);
   /* [3, 295, 38]  */
   /*  |       |    */
   /*  head    tail */
 
-  delete_llnode(list, n_295->data);
+  llist_delete(list, n_295->data);
   ck_assert_ptr_eq(list->head, n_3);
   ck_assert_ptr_eq(list->tail, n_38);
   /* [3,  38]   */
   /*  |    |    */
   /*  head tail */
 
-  delete_llnode(list, n_38->data);
+  llist_delete(list, n_38->data);
   ck_assert_ptr_eq(list->head, n_3);
   ck_assert_ptr_eq(list->tail, n_3);
   /*     [3]     */
   /*      |      */
   /* head - tail */
 
-  delete_llnode(list, n_3->data);
+  llist_delete(list, n_3->data);
   ck_assert_ptr_eq(list->head, NULL);
   ck_assert_ptr_eq(list->tail, NULL);
   /*     [ ]     */

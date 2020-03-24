@@ -11,53 +11,53 @@ main(int argc, char ** argv)
 
   order_type order = (order_type) atoi(argv[1]);
 
-  llnode_t * n0 = create_llnode(0);
-  llnode_t * n1 = create_llnode(5);
-  llnode_t * n2 = create_llnode(6);
-  llnode_t * n3 = create_llnode(9);
-  llnode_t * n4 = create_llnode(13);
-  llnode_t * n5 = create_llnode(17);
-  llnode_t * n6 = create_llnode(0);
-  llnode_t * n7 = create_llnode(17);
+  llnode_t * n0 = llnode_create(0);
+  llnode_t * n1 = llnode_create(5);
+  llnode_t * n2 = llnode_create(6);
+  llnode_t * n3 = llnode_create(9);
+  llnode_t * n4 = llnode_create(13);
+  llnode_t * n5 = llnode_create(17);
+  llnode_t * n6 = llnode_create(0);
+  llnode_t * n7 = llnode_create(17);
 
-  llist_t * list = create_llist_with_order(order);
+  llist_t * list = llist_create_with_order(order);
 
-  insert_llnode(list, n4);
-  insert_llnode(list, n1);
-  insert_llnode(list, n2);
-  insert_llnode(list, n3);
-  insert_llnode(list, n0);
-  insert_llnode(list, n5);
-  insert_llnode(list, n6);
-  insert_llnode(list, n7);
+  llist_insert(list, n4);
+  llist_insert(list, n1);
+  llist_insert(list, n2);
+  llist_insert(list, n3);
+  llist_insert(list, n0);
+  llist_insert(list, n5);
+  llist_insert(list, n6);
+  llist_insert(list, n7);
 
   print(list);
 
-  delete_llnode(list, 13);
+  llist_delete(list, 13);
   print(list);
-  delete_llnode(list, 14);
-  delete_llnode(list, 0);
+  llist_delete(list, 14);
+  llist_delete(list, 0);
   print(list);
-  delete_llnode(list, 17);
+  llist_delete(list, 17);
   print(list);
-  delete_llnode(list, 17);
+  llist_delete(list, 17);
   print(list);
-  delete_llnode(list, 9);
+  llist_delete(list, 9);
   print(list);
-  delete_llnode(list, 6);
+  llist_delete(list, 6);
   print(list);
-  delete_llnode(list, 5);
+  llist_delete(list, 5);
   print(list);
-  delete_llnode(list, 0);
+  llist_delete(list, 0);
   print(list);
-  delete_llnode(list, 12);
+  llist_delete(list, 12);
   print(list);
-  delete_llnode(list, 0);
+  llist_delete(list, 0);
   print(list);
 
   puts("Before free()");
   print_state(list);
-  free_llist(list);
+  llist_free(list);
   puts("After free()");
   print_state(list);
   puts("");

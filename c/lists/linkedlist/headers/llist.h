@@ -21,12 +21,13 @@ struct llnode_t
   llnode_t * next;
 };
 
-llist_t * create_llist(void);
-llist_t * create_llist_with_order(order_type order);
-void free_llist(llist_t * list);
+llnode_t * llnode_create(int data);
 
-llnode_t * create_llnode(int data);
-void insert_llnode(llist_t * list, llnode_t * node);
-void delete_llnode(llist_t * list, int data);
+llist_t * llist_create(void);
+llist_t * llist_create_with_order(order_type order);
+void llist_free(llist_t * list);
+void llist_insert(llist_t * list, llnode_t * node);
+void llist_delete(llist_t * list, int data);
+llnode_t * llist_at(llist_t * list, int idx);
 
 #endif /* LLIST_H */
