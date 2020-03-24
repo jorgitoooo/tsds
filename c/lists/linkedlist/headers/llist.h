@@ -11,9 +11,7 @@ struct llist_t
 {
   llnode_t * head;
   llnode_t * tail;
-
   order_type order;
-
   size_t sz;
 };
 
@@ -23,11 +21,12 @@ struct llnode_t
   llnode_t * next;
 };
 
-void init(llist_t * list);
-void init_with_order(llist_t * list, order_type order);
-void insert_node(llist_t * list, llnode_t * node);
-void delete_node(llist_t * list, int data);
+llist_t * create_llist(void);
+llist_t * create_llist_with_order(order_type order);
+void free_llist(llist_t * list);
 
-llnode_t * create_node(int data);
+llnode_t * create_llnode(int data);
+void insert_llnode(llist_t * list, llnode_t * node);
+void delete_llnode(llist_t * list, int data);
 
 #endif /* LLIST_H */

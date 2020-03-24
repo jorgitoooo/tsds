@@ -4,112 +4,137 @@
 #include "../headers/utils.h"
 
 /* Helper functions */
-static void insert_node_asc(llist_t * list, llnode_t * node);
-static void insert_node_desc(llist_t * list, llnode_t * node);
-static void insert_node_unordered(llist_t * list, llnode_t * node);
-static llnode_t * get_prev_node(llist_t * list, int data);
-static llnode_t * extract_node(llist_t * list, int data);
+static void init_llist(llist_t *);
+static void init_llist_with_order(llist_t *, order_type);
+static void free_llnode(llnode_t *);
+static void insert_llnode_asc(llist_t *, llnode_t *);
+static void insert_llnode_desc(llist_t *, llnode_t *);
+static void insert_llnode_unordered(llist_t *, llnode_t *);
+static llnode_t * get_prev_llnode(llist_t *, int);
+static llnode_t * extract_llnode(llist_t *, int);
 
 
 /*-----------------------------------*/
 /* Function Definitions              */
 /*-----------------------------------*/
+llist_t *
+create_llist(void)
+{
+  llist_t * list = (llist_t *) malloc(sizeof(llist_t));
+  if (list)
+    init_llist(list);
+  return list;
+}
+
+llist_t *
+create_llist_with_order(order_type order)
+{
+  llist_t * list = (llist_t *) malloc(sizeof(llist_t));
+  if (list)
+    init_llist_with_order(list, order);
+  return list;
+}
+
 llnode_t *
-create_node(int data)
+create_llnode(int data)
 {
-  llnode_t * n0 = (llnode_t *) malloc(sizeof(llnode_t));
-  if (n0)
-    n0->data = data;
-  return n0;
-}
-
-void 
-init(llist_t * list)
-{
-  list->head = NULL;
-  list->tail = NULL;
-  list->sz = 0;
-}
-
-void 
-init_with_order(llist_t * list, order_type order)
-{
-  init(list);
-  list->order = order;
+  llnode_t * node = (llnode_t *) malloc(sizeof(llnode_t));
+  if (node)
+  {
+    node->data = data;
+    node->next = NULL;
+  }
+  return node;
 }
 
 void
-insert_node(llist_t * list, llnode_t * node)
+free_llist(llist_t * list)
+{
+  if (list == NULL)
+    return;
+
+  llnode_t * cur = list->head;
+  while (cur)
+  {
+    llnode_t * node_to_free = cur;
+    cur = cur->next;
+    free_llnode(node_to_free);
+  }
+  list->sz = 0;
+  free(list);
+}
+
+void
+insert_llnode(llist_t * list, llnode_t * node)
 {
   if (list && node)
   {
     if (list->order == ASC)
-      insert_node_asc(list, node);
+      insert_llnode_asc(list, node);
 
     else if (list->order == DESC)
-      insert_node_desc(list, node);
+      insert_llnode_desc(list, node);
 
     else
-      insert_node_unordered(list, node);
+      insert_llnode_unordered(list, node);
 
     list->sz++;
   }
 }
 
 void
-delete_node(llist_t * list, int data)
+delete_llnode(llist_t * list, int data)
 // Deletes first node containing data
 {
   if (list)
   {
-    llnode_t * extracted_node = extract_node(list, data);
+    llnode_t * extracted_node = extract_llnode(list, data);
 
     if (extracted_node)
     {
-      printf("Deleting node with data %d\n", extracted_node->data);
+      if (extracted_node->data != data) /* Internal error */
+        return;
+
+      //printf("Deleting node with data %d\n", extracted_node->data);
+      free_llnode(extracted_node);
       list->sz--;
-      free(extracted_node);
     }
   }
-}
-
-static llnode_t *
-extract_node(llist_t * list, int data)
-{
-  llnode_t * prev_node = list->head;
-
-  if (list->head == NULL)
-    return NULL;
-
-  if (list->head->data == data) /* Checks if HEAD is node to remove */
-  {
-    if (list->sz == 1)
-      list->head = list->tail = NULL;
-
-    else
-      list->head = list->head->next;
-
-    return prev_node;
-  }
-
-  while (prev_node->next && prev_node->next->data != data)
-    prev_node = prev_node->next;
-
-  llnode_t * extracted_node = prev_node->next;
-  if (prev_node->next && prev_node->next->data == data)
-    prev_node->next = prev_node->next->next;
-
-  if (extracted_node == list->tail) /* Handles case where extracted node is TAIL */
-    list->tail = prev_node;
-
-  return extracted_node;
 }
 
 /*-----------------------------------*/
 /* Helper Functions                  */ 
 /*-----------------------------------*/
+static void 
+init_llist(llist_t * list)
+{
+  list->head = NULL;
+  list->tail = NULL;
+  list->order = NONE;
+  list->sz = 0;
+}
+
+static void 
+init_llist_with_order(llist_t * list, order_type order)
+{
+  init_llist(list);
+  list->order = order;
+}
+
 static void
-insert_node_unordered(llist_t * list, llnode_t * node)
+free_llnode(llnode_t * node)
+{
+  if (node == NULL)
+    return;
+
+  node->data = 0;
+  node->next = NULL;
+  free(node);
+}
+
+
+static void
+insert_llnode_unordered(llist_t * list, llnode_t * node)
 // Appends node to end of linked list.
 // This function should not be called if list or node
 // are NULL.
@@ -125,13 +150,13 @@ insert_node_unordered(llist_t * list, llnode_t * node)
 }
 
 static void
-insert_node_asc(llist_t * list, llnode_t * node)
+insert_llnode_asc(llist_t * list, llnode_t * node)
 // Inserts node into linked list in ascending order.
 // This function should not be called if list or node
 // are NULL.
 {
   int data = node->data;
-  llnode_t * prev_node = get_prev_node(list, data);
+  llnode_t * prev_node = get_prev_llnode(list, data);
 
   if (prev_node == NULL) /* Node to insert will be new HEAD */
   {
@@ -156,13 +181,13 @@ insert_node_asc(llist_t * list, llnode_t * node)
 }
 
 static void
-insert_node_desc(llist_t * list, llnode_t * node)
+insert_llnode_desc(llist_t * list, llnode_t * node)
 // Inserts node into linked list in descending order
 // This function should not be called if list or node
 // are NULL.
 {
   int data = node->data;
-  llnode_t * prev_node = get_prev_node(list, data);
+  llnode_t * prev_node = get_prev_llnode(list, data);
 
   if (prev_node == NULL) /* Node to insert will be new HEAD */
   {
@@ -187,7 +212,7 @@ insert_node_desc(llist_t * list, llnode_t * node)
 }
 
 static llnode_t *
-get_prev_node(llist_t * list, int data)
+get_prev_llnode(llist_t * list, int data)
 {
   llnode_t * res = NULL;
   llnode_t * head = list->head;
@@ -218,3 +243,36 @@ get_prev_node(llist_t * list, int data)
 
   return res;
 }
+
+static llnode_t *
+extract_llnode(llist_t * list, int data)
+{
+  llnode_t * prev_node = list->head;
+
+  if (list->head == NULL)
+    return NULL;
+
+  if (list->head->data == data) /* Handles case where node to extract is HEAD */
+  {
+    if (list->sz == 1)
+      list->head = list->tail = NULL;
+
+    else
+      list->head = list->head->next;
+
+    return prev_node;
+  }
+
+  while (prev_node->next && prev_node->next->data != data)
+    prev_node = prev_node->next;
+
+  llnode_t * extracted_node = prev_node->next;
+  if (prev_node->next && prev_node->next->data == data)
+    prev_node->next = prev_node->next->next;
+
+  if (extracted_node == list->tail) /* Handles case where node to extract is TAIL */
+    list->tail = prev_node;
+
+  return extracted_node;
+}
+

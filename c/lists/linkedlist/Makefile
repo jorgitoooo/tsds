@@ -1,5 +1,5 @@
-CC = gcc  
-CFlags = -ggdb -pthread -Wall 
+CC = gcc
+CFlags = -g -pthread -Wall 
 DL_FLAGS = -lcheck
 
 EXEC = exec

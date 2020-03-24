@@ -2,7 +2,7 @@
 #include "../headers/utils.h"
 
 void
-print(llist_t * list)
+print(llist_t const * const list)
 {
   static char order_msg[128];
   if (list)
@@ -20,6 +20,7 @@ print(llist_t * list)
     while (cur)
     {
       printf("%d%s", cur->data, cur->next ? ", " : "");
+      fflush(stdout);
       cur = cur->next;
     }
     puts("]\n");
@@ -27,22 +28,22 @@ print(llist_t * list)
 }
 
 void
-print_node(llnode_t * node)
+print_node(llnode_t const * const node)
 {
   if (node)
-    printf("Node {\n  address: %p,\n  data: %d,\n  next: %p\n }\n", node, node->data, node->next);
+    printf("Node {\n    address: %p,\n    data: %d,\n    next: %p\n  }\n", node, node->data, node->next);
   else
     printf("NULL\n");
 }
 
 void
-print_state(llist_t * list)
+print_state(llist_t const * const list)
 {
   if (list)
-    //printf("List {\n head: %p,\n tail: %p,\n sz: %zu\n}\n", list->head, list->tail, list->sz);
-    printf("List {\n head: ");
-    print_node(list->head);
-    printf(" tail: ");
-    print_node(list->tail);
-    printf(" sz: %zu\n}\n", list->sz);
+    printf("List {\n");
+    printf("  address: %p,\n", list);
+    printf("  head: "); print_node(list->head);
+    printf("  tail: "); print_node(list->tail);
+    printf("  sz: %zu\n", list->sz);
+    printf("}\n");
 }
