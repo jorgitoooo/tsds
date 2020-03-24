@@ -70,12 +70,45 @@ START_TEST (llist_size_test)
 }
 END_TEST
 
-START_TEST(head_tail_test)
+START_TEST(llist_head_tail_test)
 {
-  llnode_t * head;
-  llnode_t * tail;
-  llnode_t * n0;
-  llnode_t * n1;
+  llnode_t * n_0= create_llnode(0);
+  llnode_t * n_3 = create_llnode(3);
+  llnode_t * n_295 = create_llnode(295);
+  llnode_t * n_38= create_llnode(38);
+
+  insert_llnode(list, n_0);
+  insert_llnode(list, n_3);
+  insert_llnode(list, n_295);
+  insert_llnode(list, n_38);
+  /* [0, 3, 295, 38]  */
+
+  ck_assert_ptr_eq(list->head, n_0);
+  ck_assert_ptr_eq(list->tail, n_38);
+  /* [0, 3, 295, 38]  */
+  /*  |          |    */
+  /*  head       tail */
+
+  delete_llnode(list, n_0->data);
+  ck_assert_ptr_eq(list->head, n_3);
+  ck_assert_ptr_eq(list->tail, n_38);
+  /* [3, 295, 38]  */
+  /*  |       |    */
+  /*  head    tail */
+
+  delete_llnode(list, n_295->data);
+  ck_assert_ptr_eq(list->head, n_3);
+  ck_assert_ptr_eq(list->tail, n_38);
+  /* [3,  38]   */
+  /*  |    |    */
+  /*  head tail */
+
+  delete_llnode(list, n_38->data);
+  ck_assert_ptr_eq(list->head, n_3);
+  ck_assert_ptr_eq(list->tail, n_3);
+  /*     [3]     */
+  /*      |      */
+  /* head - tail */
 }
 END_TEST 
 
@@ -91,6 +124,7 @@ llist_suite(void)
   tcase_add_checked_fixture(tc_core, setup, teardown);
 
   tcase_add_test(tc_core, llist_size_test);
+  tcase_add_test(tc_core, llist_head_tail_test);
   suite_add_tcase(suite, tc_core);
 
   return suite;
