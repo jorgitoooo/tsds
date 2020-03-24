@@ -12,21 +12,16 @@ static void llist_insert_desc(llist_t *, llnode_t *);
 static void llist_insert_unordered(llist_t *, llnode_t *);
 static llnode_t * llist_get_prev_llnode(llist_t *, int);
 static llnode_t * llist_extract_llnode(llist_t *, int);
-
-/*
-llist_t * llist_create(void);
-llist_t * llist_create_with_order(order_type order);
-void llist_free(llist_t * list);
-void llist_insert(llist_t * list, llnode_t * node);
-void llist_delete(llist_t * list, int data);
-llnode_t * llist_at(llist_t * list, int idx);
-*/
+static llnode_t * llist_get_llnode_at(llist_t * list, size_t idx);
 
 /*-----------------------------------*/
 /* Function Definitions              */
 /*-----------------------------------*/
+
 llist_t *
 llist_create(void)
+// Creates a new linked list with a default order_type
+// of unordered.
 {
   llist_t * list = (llist_t *) malloc(sizeof(llist_t));
   if (list)
@@ -36,6 +31,7 @@ llist_create(void)
 
 llist_t *
 llist_create_with_order(order_type order)
+// Creates a new linked list with the specified order_type.
 {
   llist_t * list = (llist_t *) malloc(sizeof(llist_t));
   if (list)
@@ -45,6 +41,7 @@ llist_create_with_order(order_type order)
 
 llnode_t *
 llnode_create(int data)
+// Creates a new linked list node
 {
   llnode_t * node = (llnode_t *) malloc(sizeof(llnode_t));
   if (node)
@@ -57,6 +54,7 @@ llnode_create(int data)
 
 void
 llist_free(llist_t * list)
+// Frees memory allocated for list
 {
   if (list == NULL)
     return;
@@ -74,6 +72,10 @@ llist_free(llist_t * list)
 
 void
 llist_insert(llist_t * list, llnode_t * node)
+// Inserts the linked list node referenced by node into 
+// the linked list in accordance to to the list's order
+// type and increments the size of the linked list by
+// one.
 {
   if (list && node)
   {
@@ -92,7 +94,8 @@ llist_insert(llist_t * list, llnode_t * node)
 
 void
 llist_delete(llist_t * list, int data)
-// Deletes first node containing data
+// Deletes first node in the linked list that contains 
+// data and decrements linked list size by one.
 {
   if (list)
   {
@@ -103,18 +106,35 @@ llist_delete(llist_t * list, int data)
       if (extracted_node->data != data) /* Internal error */
         return;
 
-      //printf("Deleting node with data %d\n", extracted_node->data);
       llnode_free(extracted_node);
       list->sz--;
     }
   }
 }
 
+llnode_t * 
+llist_at(llist_t * list, size_t idx)
+// Returns the linked list node at position idx if idx 
+// is within bounds and list is not NULL. Else, returns
+// NULL.
+{
+  if (list
+      && idx >= 0
+      && idx < list->sz)
+  {
+    return llist_get_llnode_at(list, idx);
+  }
+  return NULL;
+}
+
 /*-----------------------------------*/
 /* Helper Functions                  */ 
 /*-----------------------------------*/
+
 static void 
 llist_init(llist_t * list)
+// Initializes linked list and sets order_type to
+// unordered. list should always be a valid pointer.
 {
   list->head = NULL;
   list->tail = NULL;
@@ -124,6 +144,9 @@ llist_init(llist_t * list)
 
 static void 
 llist_init_with_order(llist_t * list, order_type order)
+// Initializes linked list and sets order_type to
+// specified order. list should always be a valid
+// pointer.
 {
   llist_init(list);
   list->order = order;
@@ -131,6 +154,7 @@ llist_init_with_order(llist_t * list, order_type order)
 
 static void
 llnode_free(llnode_t * node)
+// Frees linked list node if it exists.
 {
   if (node == NULL)
     return;
@@ -143,9 +167,9 @@ llnode_free(llnode_t * node)
 
 static void
 llist_insert_unordered(llist_t * list, llnode_t * node)
-// Appends node to end of linked list.
-// This function should not be called if list or node
-// are NULL.
+// Appends linked list node to end of linked list.
+// This function should not be called if list or
+// node are NULL.
 {
   if (list->sz == 0) /* list is empty */
     list->head = list->tail = node;
@@ -166,16 +190,20 @@ llist_insert_asc(llist_t * list, llnode_t * node)
   int data = node->data;
   llnode_t * prev_node = llist_get_prev_llnode(list, data);
 
-  if (prev_node == NULL) /* Node to insert will be new HEAD */
+  /* Node to insert will be new HEAD */
+  if (prev_node == NULL) 
   {
     node->next = list->head;
     list->head = node;
-    if (list->sz == 0) /* Handles case where list is empty */
+
+    /* Handles case where list is empty */
+    if (list->sz == 0) 
       list->tail = node;
   }
   else
   {
-    if (prev_node->next == NULL) /* Node to insert will be new TAIL */
+    /* Node to insert will be new TAIL */
+    if (prev_node->next == NULL) 
     {
       prev_node->next = node;
       list->tail = node;
@@ -197,16 +225,20 @@ llist_insert_desc(llist_t * list, llnode_t * node)
   int data = node->data;
   llnode_t * prev_node = llist_get_prev_llnode(list, data);
 
-  if (prev_node == NULL) /* Node to insert will be new HEAD */
+  /* Node to insert will be new HEAD */
+  if (prev_node == NULL) 
   {
     node->next = list->head;
     list->head = node;
-    if (list->sz == 0) /* Handles case where list is empty */
+
+    /* Handles case where list is empty */
+    if (list->sz == 0) 
       list->tail = node;
   }
   else
   {
-    if (prev_node->next == NULL) /* Node to insert will be new TAIL */
+    /* Node to insert will be new TAIL */
+    if (prev_node->next == NULL) 
     {
       prev_node->next = node;
       list->tail = node;
@@ -221,6 +253,9 @@ llist_insert_desc(llist_t * list, llnode_t * node)
 
 static llnode_t *
 llist_get_prev_llnode(llist_t * list, int data)
+// Returns the node that comes before node containing 
+// data. If node with data doesn't exist or node
+// containing data is HEAD node, it returns NULL.
 {
   llnode_t * res = NULL;
   llnode_t * head = list->head;
@@ -254,13 +289,17 @@ llist_get_prev_llnode(llist_t * list, int data)
 
 static llnode_t *
 llist_extract_llnode(llist_t * list, int data)
+// Extracts node containing data from linked list
+// and modifies previous node to point to extracted
+// node's next node.
 {
   llnode_t * prev_node = list->head;
 
   if (list->head == NULL)
     return NULL;
 
-  if (list->head->data == data) /* Handles case where node to extract is HEAD */
+  /* Handles case where node to extract is HEAD */
+  if (list->head->data == data)
   {
     if (list->sz == 1)
       list->head = list->tail = NULL;
@@ -278,9 +317,21 @@ llist_extract_llnode(llist_t * list, int data)
   if (prev_node->next && prev_node->next->data == data)
     prev_node->next = prev_node->next->next;
 
-  if (extracted_node == list->tail) /* Handles case where node to extract is TAIL */
+  /* Handles case where node to extract is TAIL */
+  if (extracted_node == list->tail)
     list->tail = prev_node;
 
   return extracted_node;
 }
 
+static llnode_t *
+llist_get_llnode_at(llist_t * list, size_t idx)
+// Returns node at position idx if it exists or
+// returns NULL otherwise.
+{
+  size_t i = 0;
+  llnode_t * cur = list->head;
+  while (cur && i++ < idx)
+    cur = cur->next;
+  return cur;
+}
