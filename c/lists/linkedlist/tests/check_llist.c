@@ -10,18 +10,20 @@ llist_t * list;
 void
 setup(void)
 {
-  puts("setup()");
-  list = create_llist_with_order(NONE);
+  list = create_llist();
 }
 
 void
 teardown(void)
 {
-  puts("teardown()");
   free_llist(list);
 }
 
-
+/* Tests for correct incrementing 
+ * and decrementing of linked list
+ * size after insertion and deletion
+ * operations
+ */
 START_TEST (llist_size_test)
 { 
   llnode_t * n0;
@@ -70,6 +72,11 @@ START_TEST (llist_size_test)
 }
 END_TEST
 
+/* Tests that head and tail pointers
+ * are correctly assigned and maintained
+ * throughout the life of the llist_t
+ * structure.
+ */
 START_TEST(llist_head_tail_test)
 {
   llnode_t * n_0= create_llnode(0);
@@ -107,6 +114,13 @@ START_TEST(llist_head_tail_test)
   ck_assert_ptr_eq(list->head, n_3);
   ck_assert_ptr_eq(list->tail, n_3);
   /*     [3]     */
+  /*      |      */
+  /* head - tail */
+
+  delete_llnode(list, n_3->data);
+  ck_assert_ptr_eq(list->head, NULL);
+  ck_assert_ptr_eq(list->tail, NULL);
+  /*     [ ]     */
   /*      |      */
   /* head - tail */
 }
