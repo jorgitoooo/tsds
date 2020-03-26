@@ -5,14 +5,14 @@
 
 typedef struct llist_t llist_t;
 typedef struct llnode_t llnode_t;
-typedef enum { NONE, DESC, ASC } order_type;
+typedef enum { NONE, DESC, ASC } order_type_t;
 
 struct llist_t
 {
-  llnode_t * head;
-  llnode_t * tail;
-  order_type order;
-  size_t sz;
+  llnode_t * head;        /* First element        */
+  llnode_t * tail;        /* Last element         */
+  order_type_t order;     /* Element ordering     */
+  size_t sz;              /* Size of linked list  */
 };
 
 struct llnode_t
@@ -22,12 +22,14 @@ struct llnode_t
 };
 
 llnode_t * llnode_create(int data);
+void llnode_free(llnode_t * node);
 
 llist_t * llist_create(void);
-llist_t * llist_create_with_order(order_type order);
+llist_t * llist_create_with_order(order_type_t order);
 void llist_free(llist_t * list);
 void llist_insert(llist_t * list, llnode_t * node);
 void llist_delete(llist_t * list, int data);
 llnode_t * llist_at(llist_t * list, size_t idx);
+llnode_t * llist_get(llist_t * list, int data);
 
 #endif /* LLIST_H */

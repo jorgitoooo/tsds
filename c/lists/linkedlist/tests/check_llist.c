@@ -19,12 +19,11 @@ teardown(void)
   llist_free(list);
 }
 
-/* Tests for correct incrementing 
- * and decrementing of linked list
- * size after insertion and deletion
- * operations
- */
-START_TEST(llist_size_test)
+START_TEST(test_llist_size)
+// Tests for correct incrementing 
+// and decrementing of linked list
+// size after insertion and deletion
+// operations.
 { 
   llnode_t * n0 = llnode_create(0);
   llnode_t * n1 = llnode_create(1);
@@ -67,12 +66,11 @@ START_TEST(llist_size_test)
 }
 END_TEST
 
-/* Tests that head and tail pointers
- * are correctly assigned and maintained
- * throughout the life of the llist_t
- * structure.
- */
-START_TEST(llist_head_tail_test)
+START_TEST(test_llist_head_tail)
+// Tests that head and tail pointers
+// are correctly assigned and maintained
+// throughout the life of the llist_t
+// structure.
 {
   llnode_t * n_0   = llnode_create(0);
   llnode_t * n_3   = llnode_create(3);
@@ -121,9 +119,13 @@ START_TEST(llist_head_tail_test)
 }
 END_TEST 
 
-START_TEST(llist_index_into_list_test)
+START_TEST(test_llist_index_into_list)
+// Tests that the llist_at(...) function
+// returns either the correct node residing
+// at the specified index or NULL if index
+// is out of bounds.
 {
-  int const NUM_LLNODES = 5;
+  int const NUM_LLNODES = 30;
   llnode_t * nodes[NUM_LLNODES];
 
   /* Changed order to ascending */
@@ -144,6 +146,38 @@ START_TEST(llist_index_into_list_test)
 }
 END_TEST
 
+START_TEST(test_llist_get_element)
+// Tests that the llist_get(...) function
+// returns either the correct node containing
+// specified data or NULL if no nodes contain
+// the data.
+{
+  int const NUM_LLNODES = 30;
+  llnode_t * nodes[NUM_LLNODES];
+
+  /* Changed order to ascending */
+  list->order = ASC;
+
+  int i;
+  for (i = 0; i < NUM_LLNODES; i++)
+  {
+    nodes[i] = llnode_create(i);
+    llist_insert(list, nodes[i]);
+  }
+
+  for (i = 0; i < NUM_LLNODES; i++)
+  {
+    int data = nodes[i]->data;
+    ck_assert_ptr_eq(llist_get(list, data), nodes[i]);
+    ck_assert_ptr_eq(llist_get(list, data)->next, nodes[i]->next);
+    ck_assert_int_eq(llist_get(list, data)->data, nodes[i]->data);
+  }
+
+  ck_assert_ptr_null(llist_get(list, -1));
+  ck_assert_ptr_null(llist_get(list, NUM_LLNODES));
+}
+END_TEST
+
 Suite * 
 llist_suite(void)
 {
@@ -155,9 +189,10 @@ llist_suite(void)
   tc_core = tcase_create("Core");
   tcase_add_checked_fixture(tc_core, setup, teardown);
 
-  tcase_add_test(tc_core, llist_size_test);
-  tcase_add_test(tc_core, llist_head_tail_test);
-  tcase_add_test(tc_core, llist_index_into_list_test);
+  tcase_add_test(tc_core, test_llist_size);
+  tcase_add_test(tc_core, test_llist_head_tail);
+  tcase_add_test(tc_core, test_llist_index_into_list);
+  tcase_add_test(tc_core, test_llist_get_element);
   suite_add_tcase(suite, tc_core);
 
   return suite;

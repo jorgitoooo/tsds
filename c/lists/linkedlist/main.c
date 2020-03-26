@@ -9,7 +9,7 @@ main(int argc, char ** argv)
   if (argc < 2) 
     return 0;
 
-  order_type order = (order_type) atoi(argv[1]);
+  order_type_t order = (order_type_t) atoi(argv[1]);
 
   llnode_t * n0 = llnode_create(0);
   llnode_t * n1 = llnode_create(5);

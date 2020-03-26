@@ -1,47 +1,49 @@
 #include <stdio.h>
+#include <pthread.h>
+#include <sys/types.h>
 
 #include "../headers/llist.h"
 #include "../headers/utils.h"
 
 /* Helper functions */
 static void llist_init(llist_t *);
-static void llist_init_with_order(llist_t *, order_type);
-static void llnode_free(llnode_t *);
+static void llist_init_with_order(llist_t *, order_type_t);
 static void llist_insert_asc(llist_t *, llnode_t *);
 static void llist_insert_desc(llist_t *, llnode_t *);
 static void llist_insert_unordered(llist_t *, llnode_t *);
+static void llist_acquire_writers_lock(void);
+static void llist_release_writers_lock(void);
+static void llist_reverse(llist_t * list);
 static llnode_t * llist_get_prev_llnode(llist_t *, int);
 static llnode_t * llist_extract_llnode(llist_t *, int);
 static llnode_t * llist_get_llnode_at(llist_t * list, size_t idx);
+
+/* Mutexes */
+static pthread_mutex_t mtx   = PTHREAD_MUTEX_INITIALIZER;  /* General mutex        */
+static pthread_mutex_t w_mtx = PTHREAD_MUTEX_INITIALIZER;  /* Write specific mutex */
+
+/* Reader singleton */
+static struct {
+  pthread_mutex_t mtx;
+  pthread_cond_t cv; 
+  pthread_t first_reader;
+  uint64_t cnt;
+  uint64_t entered;
+} reader = {
+  PTHREAD_MUTEX_INITIALIZER,
+  PTHREAD_COND_INITIALIZER,
+  ((pthread_t)-1),
+  0,
+  0
+};
 
 /*-----------------------------------*/
 /* Function Definitions              */
 /*-----------------------------------*/
 
-llist_t *
-llist_create(void)
-// Creates a new linked list with a default order_type
-// of unordered.
-{
-  llist_t * list = (llist_t *) malloc(sizeof(llist_t));
-  if (list)
-    llist_init(list);
-  return list;
-}
-
-llist_t *
-llist_create_with_order(order_type order)
-// Creates a new linked list with the specified order_type.
-{
-  llist_t * list = (llist_t *) malloc(sizeof(llist_t));
-  if (list)
-    llist_init_with_order(list, order);
-  return list;
-}
-
 llnode_t *
 llnode_create(int data)
-// Creates a new linked list node
+// Creates a new linked list node.
 {
   llnode_t * node = (llnode_t *) malloc(sizeof(llnode_t));
   if (node)
@@ -53,21 +55,58 @@ llnode_create(int data)
 }
 
 void
-llist_free(llist_t * list)
-// Frees memory allocated for list
+llnode_free(llnode_t * node)
+// Frees linked list node if it exists.
 {
-  if (list == NULL)
+  if (node == NULL)
     return;
 
-  llnode_t * cur = list->head;
-  while (cur)
+  node->data = 0;
+  node->next = NULL;
+  free(node);
+}
+
+llist_t *
+llist_create(void)
+// Creates a new linked list with a default order_type_t
+// of unordered.
+{
+  llist_t * list = (llist_t *) malloc(sizeof(llist_t));
+  if (list)
+    llist_init(list);
+  return list;
+}
+
+llist_t *
+llist_create_with_order(order_type_t order)
+// Creates a new linked list with the specified order_type_t.
+{
+  llist_t * list = (llist_t *) malloc(sizeof(llist_t));
+  if (list)
+    llist_init_with_order(list, order);
+  return list;
+}
+
+void
+llist_free(llist_t * list)
+// Frees memory allocated for linked list.
+{
+  pthread_mutex_lock(&mtx);
+  pthread_mutex_lock(&w_mtx);
+  if (list)
   {
-    llnode_t * node_to_free = cur;
-    cur = cur->next;
-    llnode_free(node_to_free);
+    llnode_t * cur = list->head;
+    while (cur)
+    {
+      llnode_t * node_to_free = cur;
+      cur = cur->next;
+      llnode_free(node_to_free);
+    }
+    list->sz = 0;
+    free(list);
   }
-  list->sz = 0;
-  free(list);
+  pthread_mutex_unlock(&w_mtx);
+  pthread_mutex_unlock(&mtx);
 }
 
 void
@@ -77,6 +116,8 @@ llist_insert(llist_t * list, llnode_t * node)
 // type and increments the size of the linked list by
 // one.
 {
+  pthread_mutex_lock(&mtx);
+  pthread_mutex_lock(&w_mtx);
   if (list && node)
   {
     if (list->order == ASC)
@@ -90,6 +131,8 @@ llist_insert(llist_t * list, llnode_t * node)
 
     list->sz++;
   }
+  pthread_mutex_unlock(&w_mtx);
+  pthread_mutex_unlock(&mtx);
 }
 
 void
@@ -97,6 +140,8 @@ llist_delete(llist_t * list, int data)
 // Deletes first node in the linked list that contains 
 // data and decrements linked list size by one.
 {
+  pthread_mutex_lock(&mtx);
+  pthread_mutex_lock(&w_mtx);
   if (list)
   {
     llnode_t * extracted_node = llist_extract_llnode(list, data);
@@ -104,12 +149,18 @@ llist_delete(llist_t * list, int data)
     if (extracted_node)
     {
       if (extracted_node->data != data) /* Internal error */
+      {
+        pthread_mutex_unlock(&mtx);
+        pthread_mutex_unlock(&w_mtx);
         return;
+      }
 
       llnode_free(extracted_node);
       list->sz--;
     }
   }
+  pthread_mutex_unlock(&mtx);
+  pthread_mutex_unlock(&w_mtx);
 }
 
 llnode_t * 
@@ -118,22 +169,60 @@ llist_at(llist_t * list, size_t idx)
 // is within bounds and list is not NULL. Else, returns
 // NULL.
 {
+  llist_acquire_writers_lock();
+  llnode_t * node = NULL;
   if (list
       && idx >= 0
       && idx < list->sz)
   {
-    return llist_get_llnode_at(list, idx);
+    node = llist_get_llnode_at(list, idx);
   }
-  return NULL;
+  llist_release_writers_lock();
+
+  return node;
 }
 
+llnode_t *
+llist_get(llist_t * list, int data)
+// Returns first linked list node containing data.
+// Else returns NULL.
+{
+  llist_acquire_writers_lock();
+  llnode_t * node = NULL;
+  if (list)
+  {
+    node = list->head;
+    while (node && node->data != data)
+      node = node->next;
+  }
+  llist_release_writers_lock();
+  return node;
+}
+
+void
+llist_change_order(llist_t * list, order_type_t order)
+{
+  pthread_mutex_lock(&mtx);
+  pthread_mutex_lock(&w_mtx);
+  if (list && list->order != order)
+  {
+    if (list->order == NONE)
+      ;
+      //llist_sort(list, order);
+    else
+      llist_reverse(list);
+    list->order = order;
+  }
+  pthread_mutex_unlock(&w_mtx);
+  pthread_mutex_unlock(&mtx);
+}
 /*-----------------------------------*/
 /* Helper Functions                  */ 
 /*-----------------------------------*/
 
 static void 
 llist_init(llist_t * list)
-// Initializes linked list and sets order_type to
+// Initializes linked list and sets order_type_t to
 // unordered. list should always be a valid pointer.
 {
   list->head = NULL;
@@ -143,27 +232,14 @@ llist_init(llist_t * list)
 }
 
 static void 
-llist_init_with_order(llist_t * list, order_type order)
-// Initializes linked list and sets order_type to
+llist_init_with_order(llist_t * list, order_type_t order)
+// Initializes linked list and sets order_type_t to
 // specified order. list should always be a valid
 // pointer.
 {
   llist_init(list);
   list->order = order;
 }
-
-static void
-llnode_free(llnode_t * node)
-// Frees linked list node if it exists.
-{
-  if (node == NULL)
-    return;
-
-  node->data = 0;
-  node->next = NULL;
-  free(node);
-}
-
 
 static void
 llist_insert_unordered(llist_t * list, llnode_t * node)
@@ -334,4 +410,72 @@ llist_get_llnode_at(llist_t * list, size_t idx)
   while (cur && i++ < idx)
     cur = cur->next;
   return cur;
+}
+
+static void
+llist_acquire_writers_lock(void)
+// The first thread to call this function acquires
+// a lock on writers' mutex w_mtx and sets itself
+// as the first reader in the reader structure.
+{
+  pthread_mutex_lock(&mtx);
+  pthread_mutex_lock(&reader.mtx);
+  /* First reader locks writer mutex */
+  if (!reader.entered)
+  {
+    reader.entered = 1;
+    reader.first_reader = pthread_self();
+    pthread_mutex_lock(&w_mtx);
+  }
+  reader.cnt++;
+  pthread_mutex_unlock(&reader.mtx);
+  pthread_mutex_unlock(&mtx);
+}
+
+static void
+llist_release_writers_lock(void)
+// The second to last reader signals the first reader,
+// which acquired lock on w_mtx, to release lock on
+// w_mtx.
+{
+  /* First reader releases writer mutex */
+  pthread_mutex_lock(&reader.mtx);
+  if (reader.first_reader == pthread_self())
+  {
+    while (reader.cnt != 1)
+      pthread_cond_wait(&reader.cv, &reader.mtx);
+
+    /* Only thread that locked w_mtx can unlock it */
+    pthread_mutex_unlock(&w_mtx); 
+    reader.cnt--;
+    reader.entered = 0; /* No readers reading */
+  }
+  else
+  {
+    if (--reader.cnt == 1)
+      pthread_cond_signal(&reader.cv);
+  }
+  pthread_mutex_unlock(&reader.mtx);
+}
+
+static void
+llist_reverse(llist_t * list)
+{
+  llnode_t * new_prev;
+  llnode_t * new_next;
+  llnode_t * cur;
+
+  cur = list->head;
+  list->head = list->tail;
+  list->tail = cur;
+
+  new_next = NULL;
+  new_prev = cur;
+  while (cur && cur->next)
+  {
+    new_prev = cur->next;
+    cur->next = new_next;
+    new_next = cur;
+    cur = new_prev;
+  }
 }
