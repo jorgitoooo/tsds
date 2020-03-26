@@ -190,6 +190,7 @@ llist_sort(llist_t * list, order_type_t order)
     qsort(nodes, list->sz, sizeof(llnode_t *), llist_desc_comparitor);
 
   llist_reorder_nodes_in_llist(list, nodes);
+  free(nodes);
 }
 
 llnode_t * 
