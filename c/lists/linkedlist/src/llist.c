@@ -177,17 +177,18 @@ llist_delete(llist_t * list, int data)
 void
 llist_sort(llist_t * list, order_type_t order)
 /* Sorts list in the order specified by order. Uses
-** qsort and comparitors to accomplish a sort in 
-** O(nlg(n)) time.
+** qsort and ascending/descending comparitors to sort.
 **/
 {
   if (list == NULL)
     return;
   llnode_t ** nodes = llist_make_node_array(list);
+
   if (order == ASC)
     qsort(nodes, list->sz, sizeof(llnode_t *), llist_asc_comparitor);
   else if (order == DESC)
     qsort(nodes, list->sz, sizeof(llnode_t *), llist_desc_comparitor);
+
   llist_reorder_nodes_in_llist(list, nodes);
 }
 
@@ -422,7 +423,7 @@ llist_reverse(llist_t * list)
 
   new_next = NULL;
   new_prev = cur;
-  while (cur && cur->next)
+  while (cur)
   {
     new_prev = cur->next;
     cur->next = new_next;
@@ -452,16 +453,16 @@ llist_reorder_nodes_in_llist(llist_t * list, llnode_t * nodes[])
 static int
 llist_asc_comparitor(void const * lhs, void const * rhs)
 {
-  llnode_t * l_lhs = (llnode_t *)lhs;
-  llnode_t * l_rhs = (llnode_t *)rhs;
+  llnode_t * l_lhs = *((llnode_t **)lhs);
+  llnode_t * l_rhs = *((llnode_t **)rhs);
   return l_lhs->data - l_rhs->data;
 }
 
 static int
 llist_desc_comparitor(void const * lhs, void const * rhs)
 {
-  llnode_t * l_lhs = (llnode_t *)lhs;
-  llnode_t * l_rhs = (llnode_t *)rhs;
+  llnode_t * l_lhs = *((llnode_t **)lhs);
+  llnode_t * l_rhs = *((llnode_t **)rhs);
   return l_rhs->data - l_lhs->data;
 }
 

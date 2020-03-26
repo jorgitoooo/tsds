@@ -19,6 +19,16 @@ teardown(void)
   llist_free(list);
 }
 
+void
+compare_llnode_data(llnode_t * node,
+                    int const * const data,
+                    int const sz)
+{
+  int i;
+  for (i = 0; i < sz && node; i++, node = node->next)
+    ck_assert_int_eq(node->data, data[i]);
+}
+
 START_TEST(test_llist_size)
 /* Tests for correct incrementing 
 ** and decrementing of linked list
@@ -154,6 +164,9 @@ START_TEST(test_llist_get_element)
 ** returns either the correct node containing
 ** specified data or NULL if no nodes contain
 ** the data.
+** TODO: Add edge cases.
+**        1. list->sz is 1
+**        2. list is null
 **/
 {
   int const NUM_LLNODES = 30;
@@ -172,13 +185,102 @@ START_TEST(test_llist_get_element)
   for (i = 0; i < NUM_LLNODES; i++)
   {
     int data = nodes[i]->data;
-    ck_assert_ptr_eq(llist_get(list, data), nodes[i]);
-    ck_assert_ptr_eq(llist_get(list, data)->next, nodes[i]->next);
-    ck_assert_int_eq(llist_get(list, data)->data, nodes[i]->data);
+    ck_assert_ptr_eq(llist_get(list, data), 
+                     nodes[i]);
+    ck_assert_ptr_eq(llist_get(list, data)->next,
+                     nodes[i]->next);
+    ck_assert_int_eq(llist_get(list, data)->data,
+                     nodes[i]->data);
   }
 
   ck_assert_ptr_null(llist_get(list, -1));
   ck_assert_ptr_null(llist_get(list, NUM_LLNODES));
+}
+END_TEST
+
+START_TEST(test_llist_sort)
+/* Tests the llist_sort(...) function works properly.
+** Ensures that elements are sorted in the specified
+** order.
+** TODO: Add edge cases.
+**        1. list->sz is 0 or 1
+**        2. list is null
+**/
+{
+  int const data_asc[] = {1,2,4,8,16,32,64};
+  int const data_desc[] = {64,32,16,8,4,2,1};
+  int const data_unordered[] = {16,2,8,32,1,64,4};
+  int const NUM_LLNODES = 7;
+  llnode_t nodes[NUM_LLNODES];
+
+  int i;
+  for (i = 0; i < NUM_LLNODES; i++)
+    llist_insert(list, 
+                 llnode_create(data_unordered[i]));
+
+  compare_llnode_data(list->head,
+                      data_unordered,
+                      NUM_LLNODES);
+
+  llist_sort(list, ASC);
+  compare_llnode_data(list->head,
+                      data_asc,
+                      NUM_LLNODES);
+  ck_assert_ptr_nonnull(list->head->next);
+  ck_assert_ptr_null(list->tail->next);
+  ck_assert_int_eq(list->order, NONE);
+
+  llist_sort(list, DESC);
+  compare_llnode_data(list->head,
+                      data_desc,
+                      NUM_LLNODES);
+  ck_assert_ptr_nonnull(list->head->next);
+  ck_assert_ptr_null(list->tail->next);
+  ck_assert_int_eq(list->order, NONE);
+}
+END_TEST
+
+START_TEST(test_llist_change_order)
+/* Tests the llist_change_order(...) function works
+** properly. Ensures that elements are ordered in
+** the specified order.
+** TODO: Add edge cases.
+**        1. list->sz is 0 or 1
+**        2. list is null
+**/
+{
+  int const data_asc[] = {1,2,4,8,16,32,64};
+  int const data_desc[] = {64,32,16,8,4,2,1};
+  int const data_unordered[] = {16,2,8,32,1,64,4};
+  int const NUM_LLNODES = 7;
+  llnode_t nodes[NUM_LLNODES];
+
+  int i;
+  for (i = 0; i < NUM_LLNODES; i++)
+    llist_insert(list, 
+                 llnode_create(data_unordered[i]));
+
+  llist_change_order(list, NONE); /* Does nothing */
+  ck_assert_int_eq(list->order, NONE);
+  compare_llnode_data(list->head,
+                      data_unordered,
+                      NUM_LLNODES);
+
+  llist_change_order(list, DESC);
+  ck_assert_int_eq(list->order, DESC);
+  compare_llnode_data(list->head,
+                      data_desc,
+                      NUM_LLNODES);
+  ck_assert_ptr_nonnull(list->head->next);
+  ck_assert_ptr_null(list->tail->next);
+
+  llist_change_order(list, ASC);
+  ck_assert_int_eq(list->order, ASC);
+  compare_llnode_data(list->head,
+                      data_asc,
+                      NUM_LLNODES);
+  ck_assert_ptr_nonnull(list->head->next);
+  ck_assert_ptr_null(list->tail->next);
 }
 END_TEST
 
@@ -197,6 +299,8 @@ llist_suite(void)
   tcase_add_test(tc_core, test_llist_head_tail);
   tcase_add_test(tc_core, test_llist_index_into_list);
   tcase_add_test(tc_core, test_llist_get_element);
+  tcase_add_test(tc_core, test_llist_sort);
+  tcase_add_test(tc_core, test_llist_change_order);
   suite_add_tcase(suite, tc_core);
 
   return suite;
