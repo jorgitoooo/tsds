@@ -1,5 +1,9 @@
+#include <time.h>
 #include <stdio.h>
 #include <check.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <sys/types.h>
 
 #include "../headers/llist.h"
 #include "../headers/utils.h"
@@ -284,6 +288,107 @@ START_TEST(test_llist_change_order)
 }
 END_TEST
 
+/* HELPERS */
+/* May need to duplicate api with functions
+** that can be passed to pthread_create and
+** call actual funcs being tested from w/i
+** these tests dups.
+**/
+typedef struct {
+  llist_t * list;
+  int num;
+} llist_arg_t;
+
+void *
+ck_llist_insert(void * _arg)
+{
+  llist_arg_t * arg = (llist_arg_t *)_arg;
+
+  int i;
+  unsigned int seed = (unsigned int)(time(NULL)/(arg->num + 1));
+  for (i = rand_r(&seed); i < 1000000; i++);
+
+  llist_insert(arg->list, llnode_create(arg->num));
+  return 0;
+}
+
+void
+ck_tsds_join_threads(pthread_t * threads, int const NUM_THREADS)
+{
+  int i, r;
+  for (i = 0; i < NUM_THREADS; i++)
+  {
+    r = pthread_join(threads[i], NULL);
+    if (r != 0)
+      fprintf(stderr, "Error: pthread_join\n");
+  }
+}
+
+void
+ck_llist_insert_nodes_multithread(pthread_t * threads, int const NUM_LLNODES)
+{
+  llist_arg_t args[NUM_LLNODES];
+
+  int i, r;
+  for (i = 0; i < NUM_LLNODES; i++)
+  {
+    args[i].list = list;
+    args[i].num = i;
+
+    r = pthread_create(&threads[i], NULL,
+                       &ck_llist_insert,
+                       (void *)&args[i]);
+    if (r != 0)
+      fprintf(stderr, "Error: pthread_create\n");
+  }
+
+  ck_tsds_join_threads(threads, NUM_LLNODES);
+}
+
+START_TEST(test_llist_insert_multithread)
+/* Tests the thread-safety of the llist_insert(...)
+** function. Both insertion in ascending and descending
+** order.
+**/
+{
+  int num;
+  int const NUM_LLNODES = 15;
+  pthread_t threads[NUM_LLNODES];
+  llnode_t * cur;
+
+  list->order = ASC;
+  ck_llist_insert_nodes_multithread(threads, NUM_LLNODES);
+  ck_assert_uint_eq(list->sz, NUM_LLNODES);
+
+  num = 0;
+  cur = list->head;
+  // Check that all nodes have been inserted and
+  // are present and in ascending order.
+  while (cur)
+  {
+    ck_assert_int_eq(cur->data, num++);
+    cur = cur->next;
+  }
+  
+  llist_free(list);
+  list = llist_create();
+
+  list->order = DESC;
+  ck_llist_insert_nodes_multithread(threads, NUM_LLNODES);
+  ck_assert_uint_eq(list->sz, NUM_LLNODES);
+
+  num = NUM_LLNODES - 1;
+  cur = list->head;
+  // Check that all nodes have been inserted and
+  // are present and in descending order.
+  while (cur)
+  {
+    ck_assert_int_eq(cur->data, num--);
+    cur = cur->next;
+  }
+}
+END_TEST
+
 Suite * 
 llist_suite(void)
 {
@@ -301,6 +406,7 @@ llist_suite(void)
   tcase_add_test(tc_core, test_llist_get_element);
   tcase_add_test(tc_core, test_llist_sort);
   tcase_add_test(tc_core, test_llist_change_order);
+  tcase_add_test(tc_core, test_llist_insert_multithread);
   suite_add_tcase(suite, tc_core);
 
   return suite;
