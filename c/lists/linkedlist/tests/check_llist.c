@@ -202,7 +202,7 @@ START_TEST(test_llist_get_element)
 }
 END_TEST
 
-START_TEST(test_llist_sort)
+//START_TEST(test_llist_sort)
 /* Tests the llist_sort(...) function works properly.
 ** Ensures that elements are sorted in the specified
 ** order.
@@ -210,6 +210,7 @@ START_TEST(test_llist_sort)
 **        1. list->sz is 0 or 1
 **        2. list is null
 **/
+/*
 {
   int const data_asc[] = {1,2,4,8,16,32,64};
   int const data_desc[] = {64,32,16,8,4,2,1};
@@ -243,6 +244,7 @@ START_TEST(test_llist_sort)
   ck_assert_int_eq(list->order, NONE);
 }
 END_TEST
+*/
 
 START_TEST(test_llist_change_order)
 /* Tests the llist_change_order(...) function works
@@ -345,7 +347,7 @@ ck_llist_insert_nodes_multithread(pthread_t * threads, int const NUM_LLNODES)
   ck_tsds_join_threads(threads, NUM_LLNODES);
 }
 
-START_TEST(test_llist_insert_multithread)
+START_TEST(test_mt_llist_insert)
 /* Tests the thread-safety of the llist_insert(...)
 ** function. Both insertion in ascending and descending
 ** order.
@@ -362,8 +364,8 @@ START_TEST(test_llist_insert_multithread)
 
   num = 0;
   cur = list->head;
-  // Check that all nodes have been inserted and
-  // are present and in ascending order.
+  /* Check that all nodes have been inserted and
+     are present and in ascending order. */
   while (cur)
   {
     ck_assert_int_eq(cur->data, num++);
@@ -379,8 +381,8 @@ START_TEST(test_llist_insert_multithread)
 
   num = NUM_LLNODES - 1;
   cur = list->head;
-  // Check that all nodes have been inserted and
-  // are present and in descending order.
+  /* Check that all nodes have been inserted and
+     are present and in descending order. */
   while (cur)
   {
     ck_assert_int_eq(cur->data, num--);
@@ -404,9 +406,12 @@ llist_suite(void)
   tcase_add_test(tc_core, test_llist_head_tail);
   tcase_add_test(tc_core, test_llist_index_into_list);
   tcase_add_test(tc_core, test_llist_get_element);
-  tcase_add_test(tc_core, test_llist_sort);
+  /* tcase_add_test(tc_core, test_llist_sort); */
   tcase_add_test(tc_core, test_llist_change_order);
-  tcase_add_test(tc_core, test_llist_insert_multithread);
+
+  /* Multithreaded tests */
+  tcase_add_test(tc_core, test_mt_llist_insert);
+
   suite_add_tcase(suite, tc_core);
 
   return suite;

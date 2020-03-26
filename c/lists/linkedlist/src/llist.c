@@ -15,6 +15,7 @@ static void llist_acquire_writers_lock(void);
 static void llist_release_writers_lock(void);
 static void llist_reverse(llist_t * list);
 static void llist_reorder_nodes_in_llist(llist_t * list, llnode_t * nodes[]);
+static void llist_sort(llist_t * list, order_type_t order);
 static int llist_asc_comparitor(void const * lhs, void const * rhs);
 static int llist_desc_comparitor(void const * lhs, void const * rhs);
 static llnode_t * llist_get_prev_llnode(llist_t *, int);
@@ -175,22 +176,31 @@ llist_delete(llist_t * list, int data)
 }
 
 void
-llist_sort(llist_t * list, order_type_t order)
-/* Sorts list in the order specified by order. Uses
-** qsort and ascending/descending comparitors to sort.
+llist_change_order(llist_t * list, order_type_t order)
+/* Modifies the order of list and reorders elements
+** accordingly.
 **/
 {
-  if (list == NULL)
-    return;
-  llnode_t ** nodes = llist_make_node_array(list);
+  pthread_mutex_lock(&mtx);
+  pthread_mutex_lock(&w_mtx);
+  if (list && list->order != order)
+  {
+    /* Implies that order goes from
+       NONE -> ASC | DESC */
+    if (list->order == NONE)
+      llist_sort(list, order);
 
-  if (order == ASC)
-    qsort(nodes, list->sz, sizeof(llnode_t *), llist_asc_comparitor);
-  else if (order == DESC)
-    qsort(nodes, list->sz, sizeof(llnode_t *), llist_desc_comparitor);
+    /* Implies that order goes from
+       ASC  -> DESC
+            or
+       DESC -> ASC */
+    else if (order != NONE)
+      llist_reverse(list);
 
-  llist_reorder_nodes_in_llist(list, nodes);
-  free(nodes);
+    list->order = order;
+  }
+  pthread_mutex_unlock(&w_mtx);
+  pthread_mutex_unlock(&mtx);
 }
 
 llnode_t * 
@@ -231,22 +241,6 @@ llist_get(llist_t * list, int data)
   return node;
 }
 
-void
-llist_change_order(llist_t * list, order_type_t order)
-{
-  pthread_mutex_lock(&mtx);
-  pthread_mutex_lock(&w_mtx);
-  if (list && list->order != order)
-  {
-    if (list->order == NONE)
-      llist_sort(list, order);
-    else
-      llist_reverse(list);
-    list->order = order;
-  }
-  pthread_mutex_unlock(&w_mtx);
-  pthread_mutex_unlock(&mtx);
-}
 /*-----------------------------------*/
 /* Helper Functions                  */ 
 /*-----------------------------------*/
@@ -449,6 +443,27 @@ llist_reorder_nodes_in_llist(llist_t * list, llnode_t * nodes[])
   }
   list->tail = cur;
   list->tail->next = NULL;
+}
+
+void
+llist_sort(llist_t * list, order_type_t order)
+/* Sorts list in the order specified by order. Uses
+** qsort and ascending/descending comparitors to sort.
+** Does not modify the order of the list itself.
+**/
+{
+  if (list)
+  {
+    llnode_t ** nodes = llist_make_node_array(list);
+
+    if (order == ASC)
+      qsort(nodes, list->sz, sizeof(llnode_t *), llist_asc_comparitor);
+    else if (order == DESC)
+      qsort(nodes, list->sz, sizeof(llnode_t *), llist_desc_comparitor);
+
+    llist_reorder_nodes_in_llist(list, nodes);
+    free(nodes);
+  }
 }
 
 static int

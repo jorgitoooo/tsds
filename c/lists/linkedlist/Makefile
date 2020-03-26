@@ -3,7 +3,7 @@ CFlags = -g -pthread -Wall
 DL_FLAGS = -lcheck
 
 EXEC = exec
-CHECK_EXEC = check_llist
+CHECK_TEST = check_test
 
 LIB_OBJS = llist.o utils.o
 OBJS = main.o $(LIB_OBJS)
@@ -29,7 +29,7 @@ utils.o: $(SRC_DIR_PATH)/utils.c
 # Unit Test Build #
 #-----------------#
 check: $(CHECK_OBJS)
-	$(CC) $(CFLAGS) $(DL_FLAGS) -o $(CHECK_EXEC) $(CHECK_OBJS) 
+	$(CC) $(CFLAGS) $(DL_FLAGS) -o $(CHECK_TEST) $(CHECK_OBJS) 
 
 check_llist.o: $(TEST_DIR_PATH)/check_llist.c
 	$(CC) $(CFLAGS) -c $(TEST_DIR_PATH)/check_llist.c
@@ -48,4 +48,4 @@ memtest: $(EXEC)
 # The hyphen is used to ignore errors in commands
 # - https://stackoverflow.com/questions/2670130/make-how-to-continue-after-a-command-fails
 clean:
-	-rm $(EXEC) $(CHECK_EXEC) $(ALL_OBJS)
+	-rm $(EXEC) $(CHECK_TEST) $(ALL_OBJS)
