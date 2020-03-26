@@ -20,10 +20,11 @@ teardown(void)
 }
 
 START_TEST(test_llist_size)
-// Tests for correct incrementing 
-// and decrementing of linked list
-// size after insertion and deletion
-// operations.
+/* Tests for correct incrementing 
+** and decrementing of linked list
+** size after insertion and deletion
+** operations.
+**/
 { 
   llnode_t * n0 = llnode_create(0);
   llnode_t * n1 = llnode_create(1);
@@ -67,10 +68,11 @@ START_TEST(test_llist_size)
 END_TEST
 
 START_TEST(test_llist_head_tail)
-// Tests that head and tail pointers
-// are correctly assigned and maintained
-// throughout the life of the llist_t
-// structure.
+/* Tests that head and tail pointers
+** are correctly assigned and maintained
+** throughout the life of the llist_t
+** structure.
+**/
 {
   llnode_t * n_0   = llnode_create(0);
   llnode_t * n_3   = llnode_create(3);
@@ -120,10 +122,11 @@ START_TEST(test_llist_head_tail)
 END_TEST 
 
 START_TEST(test_llist_index_into_list)
-// Tests that the llist_at(...) function
-// returns either the correct node residing
-// at the specified index or NULL if index
-// is out of bounds.
+/* Tests that the llist_at(...) function
+** returns either the correct node residing
+** at the specified index or NULL if index
+** is out of bounds.
+**/
 {
   int const NUM_LLNODES = 30;
   llnode_t * nodes[NUM_LLNODES];
@@ -147,10 +150,11 @@ START_TEST(test_llist_index_into_list)
 END_TEST
 
 START_TEST(test_llist_get_element)
-// Tests that the llist_get(...) function
-// returns either the correct node containing
-// specified data or NULL if no nodes contain
-// the data.
+/* Tests that the llist_get(...) function
+** returns either the correct node containing
+** specified data or NULL if no nodes contain
+** the data.
+**/
 {
   int const NUM_LLNODES = 30;
   llnode_t * nodes[NUM_LLNODES];
