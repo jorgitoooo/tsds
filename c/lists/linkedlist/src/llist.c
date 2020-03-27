@@ -5,6 +5,8 @@
 #include "../headers/llist.h"
 #include "../headers/utils.h"
 
+#define DEBUG 0
+
 /* Helper functions */
 static void _llist_init(llist_t *);
 static void _llist_init_with_order(llist_t *, order_type_t);
@@ -201,6 +203,11 @@ llist_change_order(llist_t * llist, order_type_t order)
 {
   pthread_mutex_lock(&mtx);
   pthread_mutex_lock(&w_mtx);
+
+  // DEBUG
+  if (DEBUG)
+    puts("llist_change_order(llist_t * llist, order_type_t order)");
+
   if (llist && llist->order != order)
   {
     /* Implies that order goes from
@@ -460,13 +467,20 @@ _llist_reorder_llnodes_in_llist(llist_t * llist, llnode_t * llnodes[])
   llist->tail->next = NULL;
 }
 
-void
+static void
 _llist_sort(llist_t * llist, order_type_t order)
 /* Sorts llist in the order specified by order. Uses
 ** qsort and ascending/descending comparitors to sort.
 ** Does not modify the order of the llist itself.
 **/
 {
+  // DEBUG
+  if (DEBUG)
+    puts("_llist_sort(llist_t * llist, order_type_t order)");
+
+  if (llist->sz == 0)
+    return;
+
   llnode_t ** llnodes = _llist_make_llnode_array(llist);
 
   if (order == ASC)
@@ -585,6 +599,10 @@ _llist_get_llnode_at(llist_t * llist, size_t idx)
 static llnode_t **
 _llist_make_llnode_array(llist_t * llist)
 {
+  // DEBUG
+  if (DEBUG)
+    puts("_llist_make_llnode_array(llist_t * llist)");
+
   llnode_t ** llnodes = (llnode_t **) malloc(sizeof(llnode_t *) * llist->sz);
   llnode_t * cur = llist->head;
   int i;

@@ -8,9 +8,26 @@
 #include "../headers/llist.h"
 #include "../headers/utils.h"
 
-/* Globals */
+#define handle_error(err, msg)             \
+  do {                                     \
+    if (err != 0)                          \
+      fprintf(stderr, "Error: %s\n", msg); \
+  } while(0)
+
+/*---------------------------------------*/
+/* Typedefs                              */
+/*---------------------------------------*/
+typedef void * (*llist_func_t)(void *);
+typedef struct tsds_llist_arg tsds_llarg_t;
+
+/*---------------------------------------*/
+/* Globals                               */
+/*---------------------------------------*/
 llist_t * llist;
 
+/*---------------------------------------*/
+/* Test fixtures                         */
+/*---------------------------------------*/
 void
 setup(void)
 {
@@ -24,6 +41,22 @@ teardown(void)
 }
 
 /*---------------------------------------*/
+/* Helper declarations                   */
+/*---------------------------------------*/
+void tsds_ck_assert_llist_array_eq(llnode_t * llnode,
+                                   int const * const data,
+                                   int const sz);
+void tsds_create_threads(pthread_t * threads, 
+                         llist_func_t func, 
+                         tsds_llarg_t * llargs, 
+                         int const NUM_LLNODES);
+void tsds_join_threads(pthread_t * threads,
+                       int const NUM_THREADS);
+void tsds_spin_r(unsigned int seed);
+
+void * tsds_llist_insert(void * arg);
+void * tsds_llist_at(void * arg);
+/*---------------------------------------*/
 /* Helper functions                      */
 /*---------------------------------------*/
 /* May need to duplicate api with functions
@@ -31,67 +64,86 @@ teardown(void)
 ** call actual funcs being tested from w/i
 ** these tests dups.
 **/
-typedef struct {
+struct tsds_llist_arg
+{
   llist_t * llist;
-  int num;
-} tsds_ck_llist_arg_t;
+  llnode_t * llnode;
+  int data;
+  int idx;
+};
 
 void *
-tsds_ck_llist_insert(void * _arg)
+tsds_llist_insert(void * arg)
 {
-  tsds_ck_llist_arg_t * arg = (tsds_ck_llist_arg_t *)_arg;
+  tsds_llarg_t * llarg = (tsds_llarg_t *)arg;
+  unsigned int seed = llarg->data;
 
-  int i;
-  unsigned int seed;
+  tsds_spin_r(seed);
+  llist_insert(llarg->llist,
+               llnode_create(llarg->data));
 
-  seed = (unsigned int)(time(NULL)/(arg->num + 1));
-  for (i = rand_r(&seed); i < 1000000; i++);
-
-  llist_insert(arg->llist, llnode_create(arg->num));
   return 0;
 }
 
+void *
+tsds_llist_at(void * arg)
+{
+  tsds_llarg_t * llarg = (tsds_llarg_t *)arg;
+  return (void *)llist_at(llarg->llist, llarg->idx);
+}
+
 void
-tsds_ck_join_threads(pthread_t * threads, int const NUM_THREADS)
+tsds_spin_r(unsigned int seed)
+{
+  unsigned int const ITERS = 10000000;
+  seed = (unsigned int)(time(NULL)/(seed*ITERS + 1));
+  int start = rand_r(&seed);
+
+  int i;
+  for (i = start; i < ITERS; i++);
+}
+
+void
+tsds_join_threads(pthread_t * threads,
+                  int const NUM_THREADS)
 {
   int i, r;
   for (i = 0; i < NUM_THREADS; i++)
   {
     r = pthread_join(threads[i], NULL);
-    if (r != 0)
-      fprintf(stderr, "Error: pthread_join\n");
+    handle_error(r, "pthread_join");
   }
 }
 
 void
-tsds_ck_llist_insert_llnodes(pthread_t * threads, int const NUM_LLNODES)
+tsds_create_threads(pthread_t * threads, 
+                    llist_func_t func, 
+                    tsds_llarg_t * llargs, 
+                    int const NUM_LLNODES)
 {
-  tsds_ck_llist_arg_t args[NUM_LLNODES];
-
   int i, r;
   for (i = 0; i < NUM_LLNODES; i++)
   {
-    args[i].llist = llist;
-    args[i].num = i;
-
     r = pthread_create(&threads[i], NULL,
-                       &tsds_ck_llist_insert,
-                       (void *)&args[i]);
-    if (r != 0)
-      fprintf(stderr, "Error: pthread_create\n");
+                       &(*func),
+                       (void *)&llargs[i]);
+    handle_error(r, "pthread_create");
   }
 
-  tsds_ck_join_threads(threads, NUM_LLNODES);
 }
 
 void
-tsds_ck_compare_llnode_data(llnode_t * llnode,
-                            int const * const data,
-                            int const sz)
+tsds_ck_assert_llist_array_eq(llnode_t * llnode,
+                              int const * const data,
+                              int const sz)
 {
   int i;
-  for (i = 0; i < sz && llnode; i++, llnode = llnode->next)
+  for (i = 0;
+       i < sz && llnode;
+       i++, llnode = llnode->next)
+  {
     ck_assert_int_eq(llnode->data, data[i]);
+  }
 }
 
 START_TEST(test_llist_size)
@@ -290,27 +342,27 @@ START_TEST(test_llist_sort)
   ck_assert_int_eq(llist->order, llorder);
   ck_assert_ptr_nonnull(llist->head->next);
   ck_assert_ptr_null(llist->tail->next);
-  tsds_ck_compare_llnode_data(llist->head,
-                      data_unordered,
-                      NUM_LLNODES);
+  tsds_ck_assert_llist_array_eq(llist->head,
+                                data_unordered,
+                                NUM_LLNODES);
 
   /* Sort in ASC order */
   llist_sort(llist, ASC);
   ck_assert_int_eq(llist->order, llorder);
   ck_assert_ptr_nonnull(llist->head->next);
   ck_assert_ptr_null(llist->tail->next);
-  tsds_ck_compare_llnode_data(llist->head,
-                      data_asc,
-                      NUM_LLNODES);
+  tsds_ck_assert_llist_array_eq(llist->head,
+                                data_asc,
+                                NUM_LLNODES);
 
   /* Sort in DESC order */
   llist_sort(llist, DESC);
   ck_assert_int_eq(llist->order, llorder);
   ck_assert_ptr_nonnull(llist->head->next);
   ck_assert_ptr_null(llist->tail->next);
-  tsds_ck_compare_llnode_data(llist->head,
-                      data_desc,
-                      NUM_LLNODES);
+  tsds_ck_assert_llist_array_eq(llist->head,
+                                data_desc,
+                                NUM_LLNODES);
 }
 END_TEST
 
@@ -327,7 +379,6 @@ START_TEST(test_llist_change_order)
   int const data_desc[] = {64,32,16,8,4,2,1};
   int const data_unordered[] = {16,2,8,32,1,64,4};
   int const NUM_LLNODES = 7;
-  llnode_t llnodes[NUM_LLNODES];
   order_type_t prev_order;
 
   int i;
@@ -342,9 +393,9 @@ START_TEST(test_llist_change_order)
   ck_assert_int_eq(llist->order, prev_order);
   ck_assert_ptr_nonnull(llist->head->next);
   ck_assert_ptr_null(llist->tail->next);
-  tsds_ck_compare_llnode_data(llist->head,
-                              data_unordered,
-                              NUM_LLNODES);
+  tsds_ck_assert_llist_array_eq(llist->head,
+                                data_unordered,
+                                NUM_LLNODES);
 
   /* Change order from NONE to DESC */
   prev_order = llist->order;
@@ -353,9 +404,9 @@ START_TEST(test_llist_change_order)
   ck_assert_int_ne(llist->order, prev_order);
   ck_assert_ptr_nonnull(llist->head->next);
   ck_assert_ptr_null(llist->tail->next);
-  tsds_ck_compare_llnode_data(llist->head,
-                              data_desc,
-                              NUM_LLNODES);
+  tsds_ck_assert_llist_array_eq(llist->head,
+                                data_desc,
+                                NUM_LLNODES);
 
   /* Change order from DESC to ASC */
   prev_order = llist->order;
@@ -364,9 +415,9 @@ START_TEST(test_llist_change_order)
   ck_assert_int_ne(llist->order, prev_order);
   ck_assert_ptr_nonnull(llist->head->next);
   ck_assert_ptr_null(llist->tail->next);
-  tsds_ck_compare_llnode_data(llist->head,
-                              data_asc,
-                              NUM_LLNODES);
+  tsds_ck_assert_llist_array_eq(llist->head,
+                                data_asc,
+                                NUM_LLNODES);
 
   /* Change order from ASC to NONE */
   prev_order = llist->order;
@@ -375,9 +426,9 @@ START_TEST(test_llist_change_order)
   ck_assert_int_ne(llist->order, prev_order);
   ck_assert_ptr_nonnull(llist->head->next);
   ck_assert_ptr_null(llist->tail->next);
-  tsds_ck_compare_llnode_data(llist->head,
-                              data_asc,
-                              NUM_LLNODES);
+  tsds_ck_assert_llist_array_eq(llist->head,
+                                data_asc,
+                                NUM_LLNODES);
 }
 END_TEST
 
@@ -390,10 +441,22 @@ START_TEST(test_mt_llist_insert)
   int num;
   int const NUM_LLNODES = 15;
   pthread_t threads[NUM_LLNODES];
+  tsds_llarg_t llargs[NUM_LLNODES];
   llnode_t * cur;
 
+  int i;
+  for (i = 0; i < NUM_LLNODES; i++)
+  {
+    llargs[i].llist = llist;
+    llargs[i].data = i;
+  }
+
   llist->order = ASC;
-  tsds_ck_llist_insert_llnodes(threads, NUM_LLNODES);
+  tsds_create_threads(threads, 
+                      tsds_llist_insert, 
+                      llargs, 
+                      NUM_LLNODES);
+  tsds_join_threads(threads, NUM_LLNODES);
   ck_assert_uint_eq(llist->sz, NUM_LLNODES);
 
   num = 0;
@@ -409,8 +472,22 @@ START_TEST(test_mt_llist_insert)
   llist_free(llist);
   llist = llist_create();
 
+  /* TODO: May need to create an args init func. 
+  **       Or just remove the llist member from
+  **       tsds_llarg_t.
+  ***/
+  for (i = 0; i < NUM_LLNODES; i++)
+  {
+    llargs[i].llist = llist;
+    llargs[i].data = i;
+  }
+
   llist->order = DESC;
-  tsds_ck_llist_insert_llnodes(threads, NUM_LLNODES);
+  tsds_create_threads(threads, 
+                      tsds_llist_insert, 
+                      llargs, 
+                      NUM_LLNODES);
+  tsds_join_threads(threads, NUM_LLNODES);
   ck_assert_uint_eq(llist->sz, NUM_LLNODES);
 
   num = NUM_LLNODES - 1;
@@ -422,6 +499,58 @@ START_TEST(test_mt_llist_insert)
     ck_assert_int_eq(cur->data, num--);
     cur = cur->next;
   }
+}
+END_TEST
+
+START_TEST(test_mt_llist_at)
+{
+  int num;
+  int const NUM_LLNODES = 15;
+
+  pthread_t threads[NUM_LLNODES];
+  tsds_llarg_t llargs[NUM_LLNODES];
+
+  llist_change_order(llist, ASC);
+
+  int i, r;
+  /* Insert llnodes [0, NUM_LLNODES) in llist */
+  for (i = 0; i < NUM_LLNODES; i++)
+  {
+    llargs[i].llnode = llnode_create(i);
+    llist_insert(llist, llargs[i].llnode);
+  }
+
+  /* Index into llist and get node */
+  for (i = 0; i < NUM_LLNODES; i++)
+  {
+    llargs[i].llist = llist;
+    llargs[i].idx = i;
+  }
+  tsds_create_threads(threads,
+                      tsds_llist_at,
+                      llargs,
+                      NUM_LLNODES);
+
+  /* join threads and assert that the correct
+     llnodes have been retreived */
+  for (i = 0; i < NUM_LLNODES; i++)
+  {
+    void * llnode;
+    r = pthread_join(threads[i], &llnode);
+    handle_error(r, "pthread_join");
+
+    ck_assert_ptr_nonnull((llnode_t *)llnode);
+    ck_assert_ptr_eq(llargs[i].llnode, (llnode_t *)llnode);
+  }
+}
+END_TEST
+
+START_TEST(test_mt_llist_get)
+{
+  int num;
+  int const NUM_LLNODES = 15;
+  pthread_t threads[NUM_LLNODES];
+  llnode_t * cur;
 }
 END_TEST
 
@@ -446,6 +575,7 @@ llist_suite(void)
 
   /* Multithreaded tests */
   tcase_add_test(tc_core, test_mt_llist_insert);
+  tcase_add_test(tc_core, test_mt_llist_at);
 
   suite_add_tcase(suite, tc_core);
 
