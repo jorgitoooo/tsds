@@ -13,15 +13,15 @@ static void _llist_insert_desc(llist_t *, llnode_t *);
 static void _llist_insert_unordered(llist_t *, llnode_t *);
 static void _llist_acquire_writers_lock(void);
 static void _llist_release_writers_lock(void);
-static void _llist_reverse(llist_t * list);
-static void _llist_reorder_nodes_in_llist(llist_t * list, llnode_t * nodes[]);
-static void _llist_sort(llist_t * list, order_type_t order);
-static int _llist_asc_comparitor(void const * lhs, void const * rhs);
-static int _llist_desc_comparitor(void const * lhs, void const * rhs);
+static void _llist_reverse(llist_t *);
+static void _llist_reorder_llnodes_in_llist(llist_t *, llnode_t **);
+static void _llist_sort(llist_t *, order_type_t);
+static int _llist_asc_comparitor(void const *, void const *);
+static int _llist_desc_comparitor(void const *, void const *);
 static llnode_t * _llist_get_prev_llnode(llist_t *, int);
 static llnode_t * _llist_extract_llnode(llist_t *, int);
-static llnode_t * _llist_get_llnode_at(llist_t * list, size_t idx);
-static llnode_t ** _llist_make_node_array(llist_t * list);
+static llnode_t * _llist_get_llnode_at(llist_t *, size_t);
+static llnode_t ** _llist_make_llnode_array(llist_t *);
 
 /* Mutexes */
 static pthread_mutex_t mtx   = PTHREAD_MUTEX_INITIALIZER;  /* General mutex        */
@@ -48,29 +48,29 @@ static struct {
 
 llnode_t *
 llnode_create(int data)
-/* Creates a new linked list node.
+/* Creates a new llnode.
 **/
 {
-  llnode_t * node = (llnode_t *) malloc(sizeof(llnode_t));
-  if (node)
+  llnode_t * llnode = (llnode_t *) malloc(sizeof(llnode_t));
+  if (llnode)
   {
-    node->data = data;
-    node->next = NULL;
+    llnode->data = data;
+    llnode->next = NULL;
   }
-  return node;
+  return llnode;
 }
 
 void
-llnode_free(llnode_t * node)
+llnode_free(llnode_t * llnode)
 /* Frees linked list node if it exists.
 **/
 {
-  if (node == NULL)
+  if (llnode == NULL)
     return;
 
-  node->data = 0;
-  node->next = NULL;
-  free(node);
+  llnode->data = 0;
+  llnode->next = NULL;
+  free(llnode);
 }
 
 llist_t *
@@ -79,10 +79,10 @@ llist_create(void)
 ** of unordered.
 **/
 {
-  llist_t * list = (llist_t *) malloc(sizeof(llist_t));
-  if (list)
-    _llist_init(list);
-  return list;
+  llist_t * llist = (llist_t *) malloc(sizeof(llist_t));
+  if (llist)
+    _llist_init(llist);
+  return llist;
 }
 
 llist_t *
@@ -90,85 +90,84 @@ llist_create_with_order(order_type_t order)
 /* Creates a new linked list with the specified order_type_t.
 **/
 {
-  llist_t * list = (llist_t *) malloc(sizeof(llist_t));
-  if (list)
-    _llist_init_with_order(list, order);
-  return list;
+  llist_t * llist = (llist_t *) malloc(sizeof(llist_t));
+  if (llist)
+    _llist_init_with_order(llist, order);
+  return llist;
 }
 
 void
-llist_free(llist_t * list)
+llist_free(llist_t * llist)
 /* Frees memory allocated for linked list.
 **/
 {
   pthread_mutex_lock(&mtx);
   pthread_mutex_lock(&w_mtx);
-  if (list)
+  if (llist)
   {
-    llnode_t * cur = list->head;
+    llnode_t * cur = llist->head;
     while (cur)
     {
-      llnode_t * node_to_free = cur;
+      llnode_t * llnode_to_free = cur;
       cur = cur->next;
-      llnode_free(node_to_free);
+      llnode_free(llnode_to_free);
     }
-    list->sz = 0;
-    free(list);
+    llist->sz = 0;
+    free(llist);
   }
   pthread_mutex_unlock(&w_mtx);
   pthread_mutex_unlock(&mtx);
 }
 
 void
-llist_insert(llist_t * list, llnode_t * node)
-/* Inserts the linked list node referenced by node into 
-** the linked list in accordance to to the list's order
-** type and increments the size of the linked list by
-** one.
+llist_insert(llist_t * llist, llnode_t * llnode)
+/* Inserts the llnode into the linked list in accordance
+** to to the list's order type and increments the size
+** of the linked list by one.
 **/
 {
   pthread_mutex_lock(&mtx);
   pthread_mutex_lock(&w_mtx);
-  if (list && node)
+  if (llist && llnode)
   {
-    if (list->order == ASC)
-      _llist_insert_asc(list, node);
+    if (llist->order == ASC)
+      _llist_insert_asc(llist, llnode);
 
-    else if (list->order == DESC)
-      _llist_insert_desc(list, node);
+    else if (llist->order == DESC)
+      _llist_insert_desc(llist, llnode);
 
     else
-      _llist_insert_unordered(list, node);
+      _llist_insert_unordered(llist, llnode);
 
-    list->sz++;
+    llist->sz++;
   }
   pthread_mutex_unlock(&w_mtx);
   pthread_mutex_unlock(&mtx);
 }
 
 void
-llist_delete(llist_t * list, int data)
-/* Deletes first node in the linked list that contains 
+llist_delete(llist_t * llist, int data)
+/* Deletes first llnode in the linked list that contains 
 ** data and decrements linked list size by one.
 **/
 {
   pthread_mutex_lock(&mtx);
   pthread_mutex_lock(&w_mtx);
-  if (list)
+  if (llist)
   {
-    llnode_t * extracted_node = _llist_extract_llnode(list, data);
+    llnode_t * extracted_llnode = _llist_extract_llnode(llist, data);
 
-    if (extracted_node)
+    if (extracted_llnode)
     {
-      if (extracted_node->data != data) /* Internal error */
+      if (extracted_llnode->data != data) /* Internal error */
       {
         pthread_mutex_unlock(&mtx);
         pthread_mutex_unlock(&w_mtx);
         return;
       }
 
-      llnode_free(extracted_node);
-      list->sz--;
+      llnode_free(extracted_llnode);
+      llist->sz--;
     }
   }
   pthread_mutex_unlock(&mtx);
@@ -176,9 +175,9 @@ llist_delete(llist_t * list, int data)
 }
 
 void
-llist_sort(llist_t * list, order_type_t order)
-/* Sorts list in the order specified by order. Does
-** not modify the order of the list itself.
+llist_sort(llist_t * llist, order_type_t order)
+/* Sorts llist in the order specified by order. Does
+** not modify the order of the llist itself.
 **/
 {
   if (order == NONE)
@@ -187,77 +186,76 @@ llist_sort(llist_t * list, order_type_t order)
   pthread_mutex_lock(&mtx);
   pthread_mutex_lock(&w_mtx);
 
-  if (list)
-    _llist_sort(list, order);
+  if (llist)
+    _llist_sort(llist, order);
 
   pthread_mutex_unlock(&w_mtx);
   pthread_mutex_unlock(&mtx);
 }
 
 void
-llist_change_order(llist_t * list, order_type_t order)
-/* Modifies the order of list and reorders elements
+llist_change_order(llist_t * llist, order_type_t order)
+/* Modifies the order of llist and reorders elements
 ** accordingly.
 **/
 {
   pthread_mutex_lock(&mtx);
   pthread_mutex_lock(&w_mtx);
-  if (list && list->order != order)
+  if (llist && llist->order != order)
   {
     /* Implies that order goes from
        NONE -> ASC | DESC */
-    if (list->order == NONE)
-      _llist_sort(list, order);
+    if (llist->order == NONE)
+      _llist_sort(llist, order);
 
     /* Implies that order goes from
        ASC  -> DESC
             or
        DESC -> ASC */
     else if (order != NONE)
-      _llist_reverse(list);
+      _llist_reverse(llist);
 
-    list->order = order;
+    llist->order = order;
   }
   pthread_mutex_unlock(&w_mtx);
   pthread_mutex_unlock(&mtx);
 }
 
 llnode_t * 
-llist_at(llist_t * list, size_t idx)
-/* Returns the linked list node at position idx if idx 
-** is within bounds and list is not NULL. Else, returns
+llist_at(llist_t * llist, size_t idx)
+/* Returns the llnode at position idx if idx is within
+** bounds and llist is not NULL. Else, returns NULL.
+**/
+{
+  _llist_acquire_writers_lock();
+  llnode_t * llnode = NULL;
+  if (llist
+      && idx >= 0
+      && idx < llist->sz)
+  {
+    llnode = _llist_get_llnode_at(llist, idx);
+  }
+  _llist_release_writers_lock();
+
+  return llnode;
+}
+
+llnode_t *
+llist_get(llist_t * llist, int data)
+/* Returns first llnode containing data. Else returns
 ** NULL.
 **/
 {
   _llist_acquire_writers_lock();
-  llnode_t * node = NULL;
-  if (list
-      && idx >= 0
-      && idx < list->sz)
+  llnode_t * llnode = NULL;
+  if (llist)
   {
-    node = _llist_get_llnode_at(list, idx);
+    llnode = llist->head;
+    while (llnode && llnode->data != data)
+      llnode = llnode->next;
   }
   _llist_release_writers_lock();
-
-  return node;
-}
-
-llnode_t *
-llist_get(llist_t * list, int data)
-/* Returns first linked list node containing data.
-** Else returns NULL.
-**/
-{
-  _llist_acquire_writers_lock();
-  llnode_t * node = NULL;
-  if (list)
-  {
-    node = list->head;
-    while (node && node->data != data)
-      node = node->next;
-  }
-  _llist_release_writers_lock();
-  return node;
+  return llnode;
 }
 
 /*-----------------------------------*/
@@ -265,114 +263,112 @@ llist_get(llist_t * list, int data)
 /*-----------------------------------*/
 
 static void 
-_llist_init(llist_t * list)
+_llist_init(llist_t * llist)
 /* Initializes linked list and sets order_type_t to
-** unordered. list should always be a valid pointer.
+** unordered. llist should always be a valid pointer.
 **/
 {
-  list->head = NULL;
-  list->tail = NULL;
-  list->order = NONE;
-  list->sz = 0;
+  llist->head = NULL;
+  llist->tail = NULL;
+  llist->order = NONE;
+  llist->sz = 0;
 }
 
 static void 
-_llist_init_with_order(llist_t * list, order_type_t order)
+_llist_init_with_order(llist_t * llist, order_type_t order)
 /* Initializes linked list and sets order_type_t to
-** specified order. list should always be a valid
+** specified order. llist should always be a valid
 ** pointer.
 **/
 {
-  _llist_init(list);
-  list->order = order;
+  _llist_init(llist);
+  llist->order = order;
 }
 
 static void
-_llist_insert_asc(llist_t * list, llnode_t * node)
-/* Inserts node into linked list in ascending order.
-** This function should not be called if list or node
+_llist_insert_asc(llist_t * llist, llnode_t * llnode)
+/* Inserts llnode into linked list in ascending order.
+** This function should not be called if llist or llnode
 ** are NULL.
 **/
 {
-  int data = node->data;
-  llnode_t * prev_node = _llist_get_prev_llnode(list, data);
+  int data = llnode->data;
+  llnode_t * prev_llnode = _llist_get_prev_llnode(llist, data);
 
   /* Node to insert will be new HEAD */
-  if (prev_node == NULL) 
+  if (prev_llnode == NULL) 
   {
-    node->next = list->head;
-    list->head = node;
+    llnode->next = llist->head;
+    llist->head = llnode;
 
-    /* Handles case where list is empty */
-    if (list->sz == 0) 
-      list->tail = node;
+    /* Handles case where llist is empty */
+    if (llist->sz == 0) 
+      llist->tail = llnode;
   }
   else
   {
     /* Node to insert will be new TAIL */
-    if (prev_node->next == NULL) 
+    if (prev_llnode->next == NULL) 
     {
-      prev_node->next = node;
-      list->tail = node;
+      prev_llnode->next = llnode;
+      llist->tail = llnode;
     }
     else
     {
-      node->next = prev_node->next;
-      prev_node->next = node;
+      llnode->next = prev_llnode->next;
+      prev_llnode->next = llnode;
     }
   }
 }
 
 static void
-_llist_insert_desc(llist_t * list, llnode_t * node)
-/* Inserts node into linked list in descending order
-** This function should not be called if list or node
+_llist_insert_desc(llist_t * llist, llnode_t * llnode)
+/* Inserts llnode into linked list in descending order
+** This function should not be called if llist or llnode
 ** are NULL.
 **/
 {
-  int data = node->data;
-  llnode_t * prev_node = _llist_get_prev_llnode(list, data);
+  int data = llnode->data;
+  llnode_t * prev_llnode = _llist_get_prev_llnode(llist, data);
 
   /* Node to insert will be new HEAD */
-  if (prev_node == NULL) 
+  if (prev_llnode == NULL) 
   {
-    node->next = list->head;
-    list->head = node;
+    llnode->next = llist->head;
+    llist->head = llnode;
 
-    /* Handles case where list is empty */
-    if (list->sz == 0) 
-      list->tail = node;
+    /* Handles case where llist is empty */
+    if (llist->sz == 0) 
+      llist->tail = llnode;
   }
   else
   {
     /* Node to insert will be new TAIL */
-    if (prev_node->next == NULL) 
+    if (prev_llnode->next == NULL) 
     {
-      prev_node->next = node;
-      list->tail = node;
+      prev_llnode->next = llnode;
+      llist->tail = llnode;
     }
     else
     {
-      node->next = prev_node->next;
-      prev_node->next = node;
+      llnode->next = prev_llnode->next;
+      prev_llnode->next = llnode;
     }
   }
 }
 
 static void
-_llist_insert_unordered(llist_t * list, llnode_t * node)
-/* Appends linked list node to end of linked list.
-** This function should not be called if list or
-** node are NULL.
+_llist_insert_unordered(llist_t * llist, llnode_t * llnode)
+/* Appends llnode to end of linked list. This function
+** should not be called if llist or llnode are NULL.
 **/
 {
-  if (list->sz == 0)
-    list->head = list->tail = node;
-
-  else /* make tail = node */
+  if (llist->sz == 0)
+    llist->head = llist->tail = llnode;
+  else 
   {
-    list->tail->next = node;
-    list->tail = node;
+    llist->tail->next = llnode;
+    llist->tail = llnode;
   }
 }
 
@@ -425,15 +421,15 @@ _llist_release_writers_lock(void)
 }
 
 static void
-_llist_reverse(llist_t * list)
+_llist_reverse(llist_t * llist)
 {
   llnode_t * new_prev;
   llnode_t * new_next;
   llnode_t * cur;
 
-  cur = list->head;
-  list->head = list->tail;
-  list->tail = cur;
+  cur = llist->head;
+  llist->head = llist->tail;
+  llist->tail = cur;
 
   new_next = NULL;
   new_prev = cur;
@@ -447,39 +443,39 @@ _llist_reverse(llist_t * list)
 }
 
 static void
-_llist_reorder_nodes_in_llist(llist_t * list, llnode_t * nodes[])
-/* Size of nodes should always be equal to list size.
+_llist_reorder_llnodes_in_llist(llist_t * llist, llnode_t * llnodes[])
+/* Size of llnodes should always be equal to llist size.
 **/
 {
-  size_t sz = list->sz;
-  list->head = nodes[0];
-  llnode_t * cur = list->head;
+  size_t sz = llist->sz;
+  llist->head = llnodes[0];
+  llnode_t * cur = llist->head;
   size_t i;
   for (i = 1; i < sz && cur; i++)
   {
-    cur->next = nodes[i];
-    cur = nodes[i];
+    cur->next = llnodes[i];
+    cur = llnodes[i];
   }
-  list->tail = cur;
-  list->tail->next = NULL;
+  llist->tail = cur;
+  llist->tail->next = NULL;
 }
 
 void
-_llist_sort(llist_t * list, order_type_t order)
-/* Sorts list in the order specified by order. Uses
+_llist_sort(llist_t * llist, order_type_t order)
+/* Sorts llist in the order specified by order. Uses
 ** qsort and ascending/descending comparitors to sort.
-** Does not modify the order of the list itself.
+** Does not modify the order of the llist itself.
 **/
 {
-  llnode_t ** nodes = _llist_make_node_array(list);
+  llnode_t ** llnodes = _llist_make_llnode_array(llist);
 
   if (order == ASC)
-    qsort(nodes, list->sz, sizeof(llnode_t *), _llist_asc_comparitor);
+    qsort(llnodes, llist->sz, sizeof(llnode_t *), _llist_asc_comparitor);
   else if (order == DESC)
-    qsort(nodes, list->sz, sizeof(llnode_t *), _llist_desc_comparitor);
+    qsort(llnodes, llist->sz, sizeof(llnode_t *), _llist_desc_comparitor);
 
-  _llist_reorder_nodes_in_llist(list, nodes);
-  free(nodes);
+  _llist_reorder_llnodes_in_llist(llist, llnodes);
+  free(llnodes);
 }
 
 static int
@@ -499,31 +495,31 @@ _llist_desc_comparitor(void const * lhs, void const * rhs)
 }
 
 static llnode_t *
-_llist_get_prev_llnode(llist_t * list, int data)
-/* Returns the node that comes before node containing 
-** data. If node with data doesn't exist or node
-** containing data is HEAD node, it returns NULL.
+_llist_get_prev_llnode(llist_t * llist, int data)
+/* Returns the llnode that comes before llnode containing 
+** data. If llnode with data doesn't exist or llnode
+** containing data is HEAD llnode, it returns NULL.
 **/
 {
   llnode_t * res = NULL;
-  llnode_t * head = list->head;
+  llnode_t * head = llist->head;
   if (head)
   {
-    if (list->order == ASC &&
+    if (llist->order == ASC &&
         head->data <= data)
     {
       res = head;
       while (res->next && res->next->data <= data)
         res = res->next;
     }
-    else if (list->order == DESC &&
+    else if (llist->order == DESC &&
              head->data >= data)
     {
       res = head;
       while (res->next && res->next->data >= data)
         res = res->next;
     }
-    else if (list->order == NONE &&
+    else if (llist->order == NONE &&
              head->data != data)
     {
       res = head;
@@ -536,66 +532,66 @@ _llist_get_prev_llnode(llist_t * list, int data)
 }
 
 static llnode_t *
-_llist_extract_llnode(llist_t * list, int data)
-/* Extracts node containing data from linked list
-** and modifies previous node to point to extracted
-** node's next node.
+_llist_extract_llnode(llist_t * llist, int data)
+/* Extracts llnode containing data from linked list
+** and modifies previous llnode to point to extracted
+** llnode's next llnode.
 **/
 {
-  llnode_t * prev_node = list->head;
+  llnode_t * prev_llnode = llist->head;
 
-  if (list->head == NULL)
+  if (llist->head == NULL)
     return NULL;
 
-  /* Handles case where node to extract is HEAD */
-  if (list->head->data == data)
+  /* Handles case where llnode to extract is HEAD */
+  if (llist->head->data == data)
   {
-    if (list->sz == 1)
-      list->head = list->tail = NULL;
+    if (llist->sz == 1)
+      llist->head = llist->tail = NULL;
 
     else
-      list->head = list->head->next;
+      llist->head = llist->head->next;
 
-    return prev_node;
+    return prev_llnode;
   }
 
-  while (prev_node->next && prev_node->next->data != data)
-    prev_node = prev_node->next;
+  while (prev_llnode->next && prev_llnode->next->data != data)
+    prev_llnode = prev_llnode->next;
 
-  llnode_t * extracted_node = prev_node->next;
-  if (prev_node->next && prev_node->next->data == data)
-    prev_node->next = prev_node->next->next;
+  llnode_t * extracted_llnode = prev_llnode->next;
+  if (prev_llnode->next && prev_llnode->next->data == data)
+    prev_llnode->next = prev_llnode->next->next;
 
-  /* Handles case where node to extract is TAIL */
-  if (extracted_node == list->tail)
-    list->tail = prev_node;
+  /* Handles case where llnode to extract is TAIL */
+  if (extracted_llnode == llist->tail)
+    llist->tail = prev_llnode;
 
-  return extracted_node;
+  return extracted_llnode;
 }
 
 static llnode_t *
-_llist_get_llnode_at(llist_t * list, size_t idx)
+_llist_get_llnode_at(llist_t * llist, size_t idx)
 /* Returns node at position idx if it exists or
 ** returns NULL otherwise.
 **/
 {
   size_t i = 0;
-  llnode_t * cur = list->head;
+  llnode_t * cur = llist->head;
   while (cur && i++ < idx)
     cur = cur->next;
   return cur;
 }
 
 static llnode_t **
-_llist_make_node_array(llist_t * list)
+_llist_make_llnode_array(llist_t * llist)
 {
-  llnode_t ** nodes = (llnode_t **) malloc(sizeof(llnode_t *) * list->sz);
-  llnode_t * cur = list->head;
+  llnode_t ** llnodes = (llnode_t **) malloc(sizeof(llnode_t *) * llist->sz);
+  llnode_t * cur = llist->head;
   int i;
-  for (i = 0; i < list->sz && cur; i++)
+  for (i = 0; i < llist->sz && cur; i++)
   {
-    nodes[i] = cur;
+    llnodes[i] = cur;
     cur = cur->next;
   }
-  return nodes;
+  return llnodes;
 }
