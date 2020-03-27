@@ -9,24 +9,85 @@
 #include "../headers/utils.h"
 
 /* Globals */
-llist_t * list;
+llist_t * llist;
 
 void
 setup(void)
 {
-  list = llist_create();
+  llist = llist_create();
 }
 
 void
 teardown(void)
 {
-  llist_free(list);
+  llist_free(llist);
+}
+
+/*---------------------------------------*/
+/* Helper functions                      */
+/*---------------------------------------*/
+/* May need to duplicate api with functions
+** that can be passed to pthread_create and
+** call actual funcs being tested from w/i
+** these tests dups.
+**/
+typedef struct {
+  llist_t * llist;
+  int num;
+} tsds_ck_llist_arg_t;
+
+void *
+tsds_ck_llist_insert(void * _arg)
+{
+  tsds_ck_llist_arg_t * arg = (tsds_ck_llist_arg_t *)_arg;
+
+  int i;
+  unsigned int seed;
+
+  seed = (unsigned int)(time(NULL)/(arg->num + 1));
+  for (i = rand_r(&seed); i < 1000000; i++);
+
+  llist_insert(arg->llist, llnode_create(arg->num));
+  return 0;
 }
 
 void
-compare_llnode_data(llnode_t * llnode,
-                    int const * const data,
-                    int const sz)
+tsds_ck_join_threads(pthread_t * threads, int const NUM_THREADS)
+{
+  int i, r;
+  for (i = 0; i < NUM_THREADS; i++)
+  {
+    r = pthread_join(threads[i], NULL);
+    if (r != 0)
+      fprintf(stderr, "Error: pthread_join\n");
+  }
+}
+
+void
+tsds_ck_llist_insert_llnodes(pthread_t * threads, int const NUM_LLNODES)
+{
+  tsds_ck_llist_arg_t args[NUM_LLNODES];
+
+  int i, r;
+  for (i = 0; i < NUM_LLNODES; i++)
+  {
+    args[i].llist = llist;
+    args[i].num = i;
+
+    r = pthread_create(&threads[i], NULL,
+                       &tsds_ck_llist_insert,
+                       (void *)&args[i]);
+    if (r != 0)
+      fprintf(stderr, "Error: pthread_create\n");
+  }
+
+  tsds_ck_join_threads(threads, NUM_LLNODES);
+}
+
+void
+tsds_ck_compare_llnode_data(llnode_t * llnode,
+                            int const * const data,
+                            int const sz)
 {
   int i;
   for (i = 0; i < sz && llnode; i++, llnode = llnode->next)
@@ -45,39 +106,39 @@ START_TEST(test_llist_size)
   llnode_t * n2 = llnode_create(4);
   llnode_t * n3 = llnode_create(-8);
 
-  ck_assert_uint_eq(list->sz, 0);
+  ck_assert_uint_eq(llist->sz, 0);
 
-  llist_insert(list, n0);
-  llist_insert(list, n1);
-  ck_assert_uint_eq(list->sz, 2);
+  llist_insert(llist, n0);
+  llist_insert(llist, n1);
+  ck_assert_uint_eq(llist->sz, 2);
 
-  llist_insert(list, n2);
-  llist_insert(list, n3);
-  ck_assert_uint_eq(list->sz, 4);
+  llist_insert(llist, n2);
+  llist_insert(llist, n3);
+  ck_assert_uint_eq(llist->sz, 4);
 
-  llist_delete(list, 1);
-  ck_assert_uint_eq(list->sz, 3);
+  llist_delete(llist, 1);
+  ck_assert_uint_eq(llist->sz, 3);
 
-  llist_delete(list, 1);
-  ck_assert_uint_eq(list->sz, 3);
+  llist_delete(llist, 1);
+  ck_assert_uint_eq(llist->sz, 3);
 
-  llist_delete(list, 4);
-  ck_assert_uint_eq(list->sz, 2);
+  llist_delete(llist, 4);
+  ck_assert_uint_eq(llist->sz, 2);
 
-  llist_delete(list, 2);
-  ck_assert_uint_eq(list->sz, 2);
+  llist_delete(llist, 2);
+  ck_assert_uint_eq(llist->sz, 2);
 
-  llist_delete(list, -8);
-  ck_assert_uint_eq(list->sz, 1);
+  llist_delete(llist, -8);
+  ck_assert_uint_eq(llist->sz, 1);
 
-  llist_delete(list, 0);
-  ck_assert_uint_eq(list->sz, 0);
+  llist_delete(llist, 0);
+  ck_assert_uint_eq(llist->sz, 0);
 
-  llist_delete(list, 1);
-  ck_assert_uint_eq(list->sz, 0);
+  llist_delete(llist, 1);
+  ck_assert_uint_eq(llist->sz, 0);
 
-  llist_delete(list, 4);
-  ck_assert_uint_eq(list->sz, 0);
+  llist_delete(llist, 4);
+  ck_assert_uint_eq(llist->sz, 0);
 }
 END_TEST
 
@@ -93,49 +154,49 @@ START_TEST(test_llist_head_tail)
   llnode_t * n_295 = llnode_create(295);
   llnode_t * n_38  = llnode_create(38);
 
-  llist_insert(list, n_0);
-  llist_insert(list, n_3);
-  llist_insert(list, n_295);
-  llist_insert(list, n_38);
+  llist_insert(llist, n_0);
+  llist_insert(llist, n_3);
+  llist_insert(llist, n_295);
+  llist_insert(llist, n_38);
   /* [0, 3, 295, 38]  */
 
-  ck_assert_ptr_eq(list->head, n_0);
-  ck_assert_ptr_eq(list->tail, n_38);
+  ck_assert_ptr_eq(llist->head, n_0);
+  ck_assert_ptr_eq(llist->tail, n_38);
   /* [0, 3, 295, 38]  */
   /*  |          |    */
   /*  head       tail */
 
-  llist_delete(list, n_0->data);
-  ck_assert_ptr_eq(list->head, n_3);
-  ck_assert_ptr_eq(list->tail, n_38);
+  llist_delete(llist, n_0->data);
+  ck_assert_ptr_eq(llist->head, n_3);
+  ck_assert_ptr_eq(llist->tail, n_38);
   /* [3, 295, 38]  */
   /*  |       |    */
   /*  head    tail */
 
-  llist_delete(list, n_295->data);
-  ck_assert_ptr_eq(list->head, n_3);
-  ck_assert_ptr_eq(list->tail, n_38);
+  llist_delete(llist, n_295->data);
+  ck_assert_ptr_eq(llist->head, n_3);
+  ck_assert_ptr_eq(llist->tail, n_38);
   /* [3,  38]   */
   /*  |    |    */
   /*  head tail */
 
-  llist_delete(list, n_38->data);
-  ck_assert_ptr_eq(list->head, n_3);
-  ck_assert_ptr_eq(list->tail, n_3);
+  llist_delete(llist, n_38->data);
+  ck_assert_ptr_eq(llist->head, n_3);
+  ck_assert_ptr_eq(llist->tail, n_3);
   /*     [3]     */
   /*      |      */
   /* head - tail */
 
-  llist_delete(list, n_3->data);
-  ck_assert_ptr_null(list->head);
-  ck_assert_ptr_null(list->tail);
+  llist_delete(llist, n_3->data);
+  ck_assert_ptr_null(llist->head);
+  ck_assert_ptr_null(llist->tail);
   /*     [ ]     */
   /*      |      */
   /* head - tail */
 }
 END_TEST 
 
-START_TEST(test_llist_index_into_list)
+START_TEST(test_llist_index_into_llist)
 /* Tests that the llist_at(...) function
 ** returns either the correct llnode residing
 ** at the specified index or NULL if index
@@ -146,20 +207,20 @@ START_TEST(test_llist_index_into_list)
   llnode_t * llnodes[NUM_LLNODES];
 
   /* Changed order to ascending */
-  list->order = ASC;
+  llist->order = ASC;
 
   int i;
   for (i = 0; i < NUM_LLNODES; i++)
   {
     llnodes[i] = llnode_create(i);
-    llist_insert(list, llnodes[i]);
+    llist_insert(llist, llnodes[i]);
   }
 
   for (i = 0; i < NUM_LLNODES; i++)
-    ck_assert_ptr_eq(llist_at(list, i), llnodes[i]);
+    ck_assert_ptr_eq(llist_at(llist, i), llnodes[i]);
 
-  ck_assert_ptr_null(llist_at(list, -1));
-  ck_assert_ptr_null(llist_at(list, NUM_LLNODES));
+  ck_assert_ptr_null(llist_at(llist, -1));
+  ck_assert_ptr_null(llist_at(llist, NUM_LLNODES));
 }
 END_TEST
 
@@ -169,36 +230,36 @@ START_TEST(test_llist_get_element)
 ** specified data or NULL if no llnodes contain
 ** the data.
 ** TODO: Add edge cases.
-**        1. list->sz is 1
-**        2. list is null
+**        1. llist->sz is 1
+**        2. llist is null
 **/
 {
   int const NUM_LLNODES = 30;
   llnode_t * llnodes[NUM_LLNODES];
 
   /* Changed order to ascending */
-  list->order = ASC;
+  llist->order = ASC;
 
   int i;
   for (i = 0; i < NUM_LLNODES; i++)
   {
     llnodes[i] = llnode_create(i);
-    llist_insert(list, llnodes[i]);
+    llist_insert(llist, llnodes[i]);
   }
 
   for (i = 0; i < NUM_LLNODES; i++)
   {
     int data = llnodes[i]->data;
-    ck_assert_ptr_eq(llist_get(list, data), 
+    ck_assert_ptr_eq(llist_get(llist, data), 
                      llnodes[i]);
-    ck_assert_ptr_eq(llist_get(list, data)->next,
+    ck_assert_ptr_eq(llist_get(llist, data)->next,
                      llnodes[i]->next);
-    ck_assert_int_eq(llist_get(list, data)->data,
+    ck_assert_int_eq(llist_get(llist, data)->data,
                      llnodes[i]->data);
   }
 
-  ck_assert_ptr_null(llist_get(list, -1));
-  ck_assert_ptr_null(llist_get(list, NUM_LLNODES));
+  ck_assert_ptr_null(llist_get(llist, -1));
+  ck_assert_ptr_null(llist_get(llist, NUM_LLNODES));
 }
 END_TEST
 
@@ -207,8 +268,8 @@ START_TEST(test_llist_sort)
 ** Ensures that elements are sorted in the specified
 ** order.
 ** TODO: Add edge cases.
-**        1. list->sz is 0 or 1
-**        2. list is null
+**        1. llist->sz is 0 or 1
+**        2. llist is null
 **/
 {
   int const data_asc[] = {1,2,4,8,16,32,64};
@@ -216,39 +277,38 @@ START_TEST(test_llist_sort)
   int const data_unordered[] = {16,2,8,32,1,64,4};
   int const NUM_LLNODES = 7;
   llnode_t llnodes[NUM_LLNODES];
-
+  
   int i;
   for (i = 0; i < NUM_LLNODES; i++)
-    llist_insert(list, 
+    llist_insert(llist, 
                  llnode_create(data_unordered[i]));
 
+  order_type_t llorder = llist->order;
+
   /* Sort in NONE order */
-  order_type_t prev_order = list->order;
-  llist_sort(list, NONE);
-  ck_assert_ptr_nonnull(list->head->next);
-  ck_assert_ptr_null(list->tail->next);
-  ck_assert_int_eq(list->order, prev_order);
-  compare_llnode_data(list->head,
+  llist_sort(llist, NONE);
+  ck_assert_int_eq(llist->order, llorder);
+  ck_assert_ptr_nonnull(llist->head->next);
+  ck_assert_ptr_null(llist->tail->next);
+  tsds_ck_compare_llnode_data(llist->head,
                       data_unordered,
                       NUM_LLNODES);
 
   /* Sort in ASC order */
-  prev_order = list->order;
-  llist_sort(list, ASC);
-  ck_assert_ptr_nonnull(list->head->next);
-  ck_assert_ptr_null(list->tail->next);
-  ck_assert_int_eq(list->order, prev_order);
-  compare_llnode_data(list->head,
+  llist_sort(llist, ASC);
+  ck_assert_int_eq(llist->order, llorder);
+  ck_assert_ptr_nonnull(llist->head->next);
+  ck_assert_ptr_null(llist->tail->next);
+  tsds_ck_compare_llnode_data(llist->head,
                       data_asc,
                       NUM_LLNODES);
 
   /* Sort in DESC order */
-  prev_order = list->order;
-  llist_sort(list, DESC);
-  ck_assert_ptr_nonnull(list->head->next);
-  ck_assert_ptr_null(list->tail->next);
-  ck_assert_int_eq(list->order, prev_order);
-  compare_llnode_data(list->head,
+  llist_sort(llist, DESC);
+  ck_assert_int_eq(llist->order, llorder);
+  ck_assert_ptr_nonnull(llist->head->next);
+  ck_assert_ptr_null(llist->tail->next);
+  tsds_ck_compare_llnode_data(llist->head,
                       data_desc,
                       NUM_LLNODES);
 }
@@ -259,8 +319,8 @@ START_TEST(test_llist_change_order)
 ** properly. Ensures that elements are ordered in
 ** the specified order.
 ** TODO: Add edge cases.
-**        1. list->sz is 0 or 1
-**        2. list is null
+**        1. llist->sz is 0 or 1
+**        2. llist is null
 **/
 {
   int const data_asc[] = {1,2,4,8,16,32,64};
@@ -268,92 +328,58 @@ START_TEST(test_llist_change_order)
   int const data_unordered[] = {16,2,8,32,1,64,4};
   int const NUM_LLNODES = 7;
   llnode_t llnodes[NUM_LLNODES];
+  order_type_t prev_order;
 
   int i;
   for (i = 0; i < NUM_LLNODES; i++)
-    llist_insert(list, 
+    llist_insert(llist, 
                  llnode_create(data_unordered[i]));
 
-  llist_change_order(list, NONE); /* Does nothing */
-  ck_assert_int_eq(list->order, NONE);
-  compare_llnode_data(list->head,
-                      data_unordered,
-                      NUM_LLNODES);
+  /* Change order to NONE to NONE */
+  prev_order = llist->order;
+  llist_change_order(llist, NONE);
+  ck_assert_int_eq(llist->order, NONE);
+  ck_assert_int_eq(llist->order, prev_order);
+  ck_assert_ptr_nonnull(llist->head->next);
+  ck_assert_ptr_null(llist->tail->next);
+  tsds_ck_compare_llnode_data(llist->head,
+                              data_unordered,
+                              NUM_LLNODES);
 
-  llist_change_order(list, DESC);
-  ck_assert_int_eq(list->order, DESC);
-  compare_llnode_data(list->head,
-                      data_desc,
-                      NUM_LLNODES);
-  ck_assert_ptr_nonnull(list->head->next);
-  ck_assert_ptr_null(list->tail->next);
+  /* Change order from NONE to DESC */
+  prev_order = llist->order;
+  llist_change_order(llist, DESC);
+  ck_assert_int_eq(llist->order, DESC);
+  ck_assert_int_ne(llist->order, prev_order);
+  ck_assert_ptr_nonnull(llist->head->next);
+  ck_assert_ptr_null(llist->tail->next);
+  tsds_ck_compare_llnode_data(llist->head,
+                              data_desc,
+                              NUM_LLNODES);
 
-  llist_change_order(list, ASC);
-  ck_assert_int_eq(list->order, ASC);
-  compare_llnode_data(list->head,
-                      data_asc,
-                      NUM_LLNODES);
-  ck_assert_ptr_nonnull(list->head->next);
-  ck_assert_ptr_null(list->tail->next);
+  /* Change order from DESC to ASC */
+  prev_order = llist->order;
+  llist_change_order(llist, ASC);
+  ck_assert_int_eq(llist->order, ASC);
+  ck_assert_int_ne(llist->order, prev_order);
+  ck_assert_ptr_nonnull(llist->head->next);
+  ck_assert_ptr_null(llist->tail->next);
+  tsds_ck_compare_llnode_data(llist->head,
+                              data_asc,
+                              NUM_LLNODES);
+
+  /* Change order from ASC to NONE */
+  prev_order = llist->order;
+  llist_change_order(llist, NONE);
+  ck_assert_int_eq(llist->order, NONE);
+  ck_assert_int_ne(llist->order, prev_order);
+  ck_assert_ptr_nonnull(llist->head->next);
+  ck_assert_ptr_null(llist->tail->next);
+  tsds_ck_compare_llnode_data(llist->head,
+                              data_asc,
+                              NUM_LLNODES);
 }
 END_TEST
-
-/* HELPERS */
-/* May need to duplicate api with functions
-** that can be passed to pthread_create and
-** call actual funcs being tested from w/i
-** these tests dups.
-**/
-typedef struct {
-  llist_t * list;
-  int num;
-} llist_arg_t;
-
-void *
-ck_llist_insert(void * _arg)
-{
-  llist_arg_t * arg = (llist_arg_t *)_arg;
-
-  int i;
-  unsigned int seed = (unsigned int)(time(NULL)/(arg->num + 1));
-  for (i = rand_r(&seed); i < 1000000; i++);
-
-  llist_insert(arg->list, llnode_create(arg->num));
-  return 0;
-}
-
-void
-ck_tsds_join_threads(pthread_t * threads, int const NUM_THREADS)
-{
-  int i, r;
-  for (i = 0; i < NUM_THREADS; i++)
-  {
-    r = pthread_join(threads[i], NULL);
-    if (r != 0)
-      fprintf(stderr, "Error: pthread_join\n");
-  }
-}
-
-void
-ck_llist_insert_llnodes_multithread(pthread_t * threads, int const NUM_LLNODES)
-{
-  llist_arg_t args[NUM_LLNODES];
-
-  int i, r;
-  for (i = 0; i < NUM_LLNODES; i++)
-  {
-    args[i].list = list;
-    args[i].num = i;
-
-    r = pthread_create(&threads[i], NULL,
-                       &ck_llist_insert,
-                       (void *)&args[i]);
-    if (r != 0)
-      fprintf(stderr, "Error: pthread_create\n");
-  }
-
-  ck_tsds_join_threads(threads, NUM_LLNODES);
-}
 
 START_TEST(test_mt_llist_insert)
 /* Tests the thread-safety of the llist_insert(...)
@@ -366,12 +392,12 @@ START_TEST(test_mt_llist_insert)
   pthread_t threads[NUM_LLNODES];
   llnode_t * cur;
 
-  list->order = ASC;
-  ck_llist_insert_llnodes_multithread(threads, NUM_LLNODES);
-  ck_assert_uint_eq(list->sz, NUM_LLNODES);
+  llist->order = ASC;
+  tsds_ck_llist_insert_llnodes(threads, NUM_LLNODES);
+  ck_assert_uint_eq(llist->sz, NUM_LLNODES);
 
   num = 0;
-  cur = list->head;
+  cur = llist->head;
   /* Check that all llnodes have been inserted and
      are present and in ascending order. */
   while (cur)
@@ -380,15 +406,15 @@ START_TEST(test_mt_llist_insert)
     cur = cur->next;
   }
   
-  llist_free(list);
-  list = llist_create();
+  llist_free(llist);
+  llist = llist_create();
 
-  list->order = DESC;
-  ck_llist_insert_llnodes_multithread(threads, NUM_LLNODES);
-  ck_assert_uint_eq(list->sz, NUM_LLNODES);
+  llist->order = DESC;
+  tsds_ck_llist_insert_llnodes(threads, NUM_LLNODES);
+  ck_assert_uint_eq(llist->sz, NUM_LLNODES);
 
   num = NUM_LLNODES - 1;
-  cur = list->head;
+  cur = llist->head;
   /* Check that all llnodes have been inserted and
      are present and in descending order. */
   while (cur)
@@ -413,7 +439,7 @@ llist_suite(void)
   /* Single thread tests */
   tcase_add_test(tc_core, test_llist_size);
   tcase_add_test(tc_core, test_llist_head_tail);
-  tcase_add_test(tc_core, test_llist_index_into_list);
+  tcase_add_test(tc_core, test_llist_index_into_llist);
   tcase_add_test(tc_core, test_llist_get_element);
   tcase_add_test(tc_core, test_llist_sort);
   tcase_add_test(tc_core, test_llist_change_order);
