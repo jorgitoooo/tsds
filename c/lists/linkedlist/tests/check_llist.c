@@ -202,7 +202,7 @@ START_TEST(test_llist_get_element)
 }
 END_TEST
 
-//START_TEST(test_llist_sort)
+START_TEST(test_llist_sort)
 /* Tests the llist_sort(...) function works properly.
 ** Ensures that elements are sorted in the specified
 ** order.
@@ -210,7 +210,6 @@ END_TEST
 **        1. list->sz is 0 or 1
 **        2. list is null
 **/
-/*
 {
   int const data_asc[] = {1,2,4,8,16,32,64};
   int const data_desc[] = {64,32,16,8,4,2,1};
@@ -223,28 +222,37 @@ END_TEST
     llist_insert(list, 
                  llnode_create(data_unordered[i]));
 
+  /* Sort in NONE order */
+  order_type_t prev_order = list->order;
+  llist_sort(list, NONE);
+  ck_assert_ptr_nonnull(list->head->next);
+  ck_assert_ptr_null(list->tail->next);
+  ck_assert_int_eq(list->order, prev_order);
   compare_llnode_data(list->head,
                       data_unordered,
                       NUM_LLNODES);
 
+  /* Sort in ASC order */
+  prev_order = list->order;
   llist_sort(list, ASC);
+  ck_assert_ptr_nonnull(list->head->next);
+  ck_assert_ptr_null(list->tail->next);
+  ck_assert_int_eq(list->order, prev_order);
   compare_llnode_data(list->head,
                       data_asc,
                       NUM_LLNODES);
+
+  /* Sort in DESC order */
+  prev_order = list->order;
+  llist_sort(list, DESC);
   ck_assert_ptr_nonnull(list->head->next);
   ck_assert_ptr_null(list->tail->next);
-  ck_assert_int_eq(list->order, NONE);
-
-  llist_sort(list, DESC);
+  ck_assert_int_eq(list->order, prev_order);
   compare_llnode_data(list->head,
                       data_desc,
                       NUM_LLNODES);
-  ck_assert_ptr_nonnull(list->head->next);
-  ck_assert_ptr_null(list->tail->next);
-  ck_assert_int_eq(list->order, NONE);
 }
 END_TEST
-*/
 
 START_TEST(test_llist_change_order)
 /* Tests the llist_change_order(...) function works
@@ -402,11 +410,12 @@ llist_suite(void)
   tc_core = tcase_create("Core");
   tcase_add_checked_fixture(tc_core, setup, teardown);
 
+  /* Single thread tests */
   tcase_add_test(tc_core, test_llist_size);
   tcase_add_test(tc_core, test_llist_head_tail);
   tcase_add_test(tc_core, test_llist_index_into_list);
   tcase_add_test(tc_core, test_llist_get_element);
-  /* tcase_add_test(tc_core, test_llist_sort); */
+  tcase_add_test(tc_core, test_llist_sort);
   tcase_add_test(tc_core, test_llist_change_order);
 
   /* Multithreaded tests */

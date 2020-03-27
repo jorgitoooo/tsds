@@ -6,22 +6,22 @@
 #include "../headers/utils.h"
 
 /* Helper functions */
-static void llist_init(llist_t *);
-static void llist_init_with_order(llist_t *, order_type_t);
-static void llist_insert_asc(llist_t *, llnode_t *);
-static void llist_insert_desc(llist_t *, llnode_t *);
-static void llist_insert_unordered(llist_t *, llnode_t *);
-static void llist_acquire_writers_lock(void);
-static void llist_release_writers_lock(void);
-static void llist_reverse(llist_t * list);
-static void llist_reorder_nodes_in_llist(llist_t * list, llnode_t * nodes[]);
-static void llist_sort(llist_t * list, order_type_t order);
-static int llist_asc_comparitor(void const * lhs, void const * rhs);
-static int llist_desc_comparitor(void const * lhs, void const * rhs);
-static llnode_t * llist_get_prev_llnode(llist_t *, int);
-static llnode_t * llist_extract_llnode(llist_t *, int);
-static llnode_t * llist_get_llnode_at(llist_t * list, size_t idx);
-static llnode_t ** llist_make_node_array(llist_t * list);
+static void _llist_init(llist_t *);
+static void _llist_init_with_order(llist_t *, order_type_t);
+static void _llist_insert_asc(llist_t *, llnode_t *);
+static void _llist_insert_desc(llist_t *, llnode_t *);
+static void _llist_insert_unordered(llist_t *, llnode_t *);
+static void _llist_acquire_writers_lock(void);
+static void _llist_release_writers_lock(void);
+static void _llist_reverse(llist_t * list);
+static void _llist_reorder_nodes_in_llist(llist_t * list, llnode_t * nodes[]);
+static void _llist_sort(llist_t * list, order_type_t order);
+static int _llist_asc_comparitor(void const * lhs, void const * rhs);
+static int _llist_desc_comparitor(void const * lhs, void const * rhs);
+static llnode_t * _llist_get_prev_llnode(llist_t *, int);
+static llnode_t * _llist_extract_llnode(llist_t *, int);
+static llnode_t * _llist_get_llnode_at(llist_t * list, size_t idx);
+static llnode_t ** _llist_make_node_array(llist_t * list);
 
 /* Mutexes */
 static pthread_mutex_t mtx   = PTHREAD_MUTEX_INITIALIZER;  /* General mutex        */
@@ -81,7 +81,7 @@ llist_create(void)
 {
   llist_t * list = (llist_t *) malloc(sizeof(llist_t));
   if (list)
-    llist_init(list);
+    _llist_init(list);
   return list;
 }
 
@@ -92,7 +92,7 @@ llist_create_with_order(order_type_t order)
 {
   llist_t * list = (llist_t *) malloc(sizeof(llist_t));
   if (list)
-    llist_init_with_order(list, order);
+    _llist_init_with_order(list, order);
   return list;
 }
 
@@ -132,13 +132,13 @@ llist_insert(llist_t * list, llnode_t * node)
   if (list && node)
   {
     if (list->order == ASC)
-      llist_insert_asc(list, node);
+      _llist_insert_asc(list, node);
 
     else if (list->order == DESC)
-      llist_insert_desc(list, node);
+      _llist_insert_desc(list, node);
 
     else
-      llist_insert_unordered(list, node);
+      _llist_insert_unordered(list, node);
 
     list->sz++;
   }
@@ -156,7 +156,7 @@ llist_delete(llist_t * list, int data)
   pthread_mutex_lock(&w_mtx);
   if (list)
   {
-    llnode_t * extracted_node = llist_extract_llnode(list, data);
+    llnode_t * extracted_node = _llist_extract_llnode(list, data);
 
     if (extracted_node)
     {
@@ -176,6 +176,25 @@ llist_delete(llist_t * list, int data)
 }
 
 void
+llist_sort(llist_t * list, order_type_t order)
+/* Sorts list in the order specified by order. Does
+** not modify the order of the list itself.
+**/
+{
+  if (order == NONE)
+    return;
+
+  pthread_mutex_lock(&mtx);
+  pthread_mutex_lock(&w_mtx);
+
+  if (list)
+    _llist_sort(list, order);
+
+  pthread_mutex_unlock(&w_mtx);
+  pthread_mutex_unlock(&mtx);
+}
+
+void
 llist_change_order(llist_t * list, order_type_t order)
 /* Modifies the order of list and reorders elements
 ** accordingly.
@@ -188,14 +207,14 @@ llist_change_order(llist_t * list, order_type_t order)
     /* Implies that order goes from
        NONE -> ASC | DESC */
     if (list->order == NONE)
-      llist_sort(list, order);
+      _llist_sort(list, order);
 
     /* Implies that order goes from
        ASC  -> DESC
             or
        DESC -> ASC */
     else if (order != NONE)
-      llist_reverse(list);
+      _llist_reverse(list);
 
     list->order = order;
   }
@@ -210,15 +229,15 @@ llist_at(llist_t * list, size_t idx)
 ** NULL.
 **/
 {
-  llist_acquire_writers_lock();
+  _llist_acquire_writers_lock();
   llnode_t * node = NULL;
   if (list
       && idx >= 0
       && idx < list->sz)
   {
-    node = llist_get_llnode_at(list, idx);
+    node = _llist_get_llnode_at(list, idx);
   }
-  llist_release_writers_lock();
+  _llist_release_writers_lock();
 
   return node;
 }
@@ -229,7 +248,7 @@ llist_get(llist_t * list, int data)
 ** Else returns NULL.
 **/
 {
-  llist_acquire_writers_lock();
+  _llist_acquire_writers_lock();
   llnode_t * node = NULL;
   if (list)
   {
@@ -237,7 +256,7 @@ llist_get(llist_t * list, int data)
     while (node && node->data != data)
       node = node->next;
   }
-  llist_release_writers_lock();
+  _llist_release_writers_lock();
   return node;
 }
 
@@ -246,7 +265,7 @@ llist_get(llist_t * list, int data)
 /*-----------------------------------*/
 
 static void 
-llist_init(llist_t * list)
+_llist_init(llist_t * list)
 /* Initializes linked list and sets order_type_t to
 ** unordered. list should always be a valid pointer.
 **/
@@ -258,25 +277,25 @@ llist_init(llist_t * list)
 }
 
 static void 
-llist_init_with_order(llist_t * list, order_type_t order)
+_llist_init_with_order(llist_t * list, order_type_t order)
 /* Initializes linked list and sets order_type_t to
 ** specified order. list should always be a valid
 ** pointer.
 **/
 {
-  llist_init(list);
+  _llist_init(list);
   list->order = order;
 }
 
 static void
-llist_insert_asc(llist_t * list, llnode_t * node)
+_llist_insert_asc(llist_t * list, llnode_t * node)
 /* Inserts node into linked list in ascending order.
 ** This function should not be called if list or node
 ** are NULL.
 **/
 {
   int data = node->data;
-  llnode_t * prev_node = llist_get_prev_llnode(list, data);
+  llnode_t * prev_node = _llist_get_prev_llnode(list, data);
 
   /* Node to insert will be new HEAD */
   if (prev_node == NULL) 
@@ -305,14 +324,14 @@ llist_insert_asc(llist_t * list, llnode_t * node)
 }
 
 static void
-llist_insert_desc(llist_t * list, llnode_t * node)
+_llist_insert_desc(llist_t * list, llnode_t * node)
 /* Inserts node into linked list in descending order
 ** This function should not be called if list or node
 ** are NULL.
 **/
 {
   int data = node->data;
-  llnode_t * prev_node = llist_get_prev_llnode(list, data);
+  llnode_t * prev_node = _llist_get_prev_llnode(list, data);
 
   /* Node to insert will be new HEAD */
   if (prev_node == NULL) 
@@ -341,7 +360,7 @@ llist_insert_desc(llist_t * list, llnode_t * node)
 }
 
 static void
-llist_insert_unordered(llist_t * list, llnode_t * node)
+_llist_insert_unordered(llist_t * list, llnode_t * node)
 /* Appends linked list node to end of linked list.
 ** This function should not be called if list or
 ** node are NULL.
@@ -358,7 +377,7 @@ llist_insert_unordered(llist_t * list, llnode_t * node)
 }
 
 static void
-llist_acquire_writers_lock(void)
+_llist_acquire_writers_lock(void)
 /* The first thread to call this function acquires
 ** a lock on writers' mutex w_mtx and sets itself
 ** as the first reader in the reader structure.
@@ -379,7 +398,7 @@ llist_acquire_writers_lock(void)
 }
 
 static void
-llist_release_writers_lock(void)
+_llist_release_writers_lock(void)
 /* The second to last reader signals the first reader,
 ** which acquired lock on w_mtx, to release lock on
 ** w_mtx.
@@ -406,7 +425,7 @@ llist_release_writers_lock(void)
 }
 
 static void
-llist_reverse(llist_t * list)
+_llist_reverse(llist_t * list)
 {
   llnode_t * new_prev;
   llnode_t * new_next;
@@ -428,7 +447,7 @@ llist_reverse(llist_t * list)
 }
 
 static void
-llist_reorder_nodes_in_llist(llist_t * list, llnode_t * nodes[])
+_llist_reorder_nodes_in_llist(llist_t * list, llnode_t * nodes[])
 /* Size of nodes should always be equal to list size.
 **/
 {
@@ -446,28 +465,25 @@ llist_reorder_nodes_in_llist(llist_t * list, llnode_t * nodes[])
 }
 
 void
-llist_sort(llist_t * list, order_type_t order)
+_llist_sort(llist_t * list, order_type_t order)
 /* Sorts list in the order specified by order. Uses
 ** qsort and ascending/descending comparitors to sort.
 ** Does not modify the order of the list itself.
 **/
 {
-  if (list)
-  {
-    llnode_t ** nodes = llist_make_node_array(list);
+  llnode_t ** nodes = _llist_make_node_array(list);
 
-    if (order == ASC)
-      qsort(nodes, list->sz, sizeof(llnode_t *), llist_asc_comparitor);
-    else if (order == DESC)
-      qsort(nodes, list->sz, sizeof(llnode_t *), llist_desc_comparitor);
+  if (order == ASC)
+    qsort(nodes, list->sz, sizeof(llnode_t *), _llist_asc_comparitor);
+  else if (order == DESC)
+    qsort(nodes, list->sz, sizeof(llnode_t *), _llist_desc_comparitor);
 
-    llist_reorder_nodes_in_llist(list, nodes);
-    free(nodes);
-  }
+  _llist_reorder_nodes_in_llist(list, nodes);
+  free(nodes);
 }
 
 static int
-llist_asc_comparitor(void const * lhs, void const * rhs)
+_llist_asc_comparitor(void const * lhs, void const * rhs)
 {
   llnode_t * l_lhs = *((llnode_t **)lhs);
   llnode_t * l_rhs = *((llnode_t **)rhs);
@@ -475,7 +491,7 @@ llist_asc_comparitor(void const * lhs, void const * rhs)
 }
 
 static int
-llist_desc_comparitor(void const * lhs, void const * rhs)
+_llist_desc_comparitor(void const * lhs, void const * rhs)
 {
   llnode_t * l_lhs = *((llnode_t **)lhs);
   llnode_t * l_rhs = *((llnode_t **)rhs);
@@ -483,7 +499,7 @@ llist_desc_comparitor(void const * lhs, void const * rhs)
 }
 
 static llnode_t *
-llist_get_prev_llnode(llist_t * list, int data)
+_llist_get_prev_llnode(llist_t * list, int data)
 /* Returns the node that comes before node containing 
 ** data. If node with data doesn't exist or node
 ** containing data is HEAD node, it returns NULL.
@@ -520,7 +536,7 @@ llist_get_prev_llnode(llist_t * list, int data)
 }
 
 static llnode_t *
-llist_extract_llnode(llist_t * list, int data)
+_llist_extract_llnode(llist_t * list, int data)
 /* Extracts node containing data from linked list
 ** and modifies previous node to point to extracted
 ** node's next node.
@@ -558,7 +574,7 @@ llist_extract_llnode(llist_t * list, int data)
 }
 
 static llnode_t *
-llist_get_llnode_at(llist_t * list, size_t idx)
+_llist_get_llnode_at(llist_t * list, size_t idx)
 /* Returns node at position idx if it exists or
 ** returns NULL otherwise.
 **/
@@ -571,7 +587,7 @@ llist_get_llnode_at(llist_t * list, size_t idx)
 }
 
 static llnode_t **
-llist_make_node_array(llist_t * list)
+_llist_make_node_array(llist_t * list)
 {
   llnode_t ** nodes = (llnode_t **) malloc(sizeof(llnode_t *) * list->sz);
   llnode_t * cur = list->head;
