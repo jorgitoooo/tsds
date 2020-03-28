@@ -234,8 +234,8 @@ llist_at(llist_t * llist, size_t idx)
 ** bounds and llist is not NULL. Else, returns NULL.
 **/
 {
-  _llist_acquire_writers_lock();
   llnode_t * llnode = NULL;
+  _llist_acquire_writers_lock();
   if (llist
       && idx >= 0
       && idx < llist->sz)
@@ -407,6 +407,10 @@ _llist_release_writers_lock(void)
 ** w_mtx.
 **/
 {
+  // DEBUG
+  if (DEBUG)
+    puts("_llist_release_writers_lock(void)");
+
   /* First reader releases writer mutex */
   pthread_mutex_lock(&reader.mtx);
   if (reader.first_reader == pthread_self())

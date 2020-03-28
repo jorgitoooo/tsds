@@ -39,7 +39,6 @@ teardown(void)
 {
   llist_free(llist);
 }
-
 /*---------------------------------------*/
 /* Helper declarations                   */
 /*---------------------------------------*/
@@ -52,18 +51,12 @@ void tsds_create_threads(pthread_t * threads,
                          int const NUM_LLNODES);
 void tsds_join_threads(pthread_t * threads,
                        int const NUM_THREADS);
-void tsds_spin_r(unsigned int seed);
-
+void tsds_spin(unsigned int seed);
 void * tsds_llist_insert(void * arg);
 void * tsds_llist_at(void * arg);
 /*---------------------------------------*/
 /* Helper functions                      */
 /*---------------------------------------*/
-/* May need to duplicate api with functions
-** that can be passed to pthread_create and
-** call actual funcs being tested from w/i
-** these tests dups.
-**/
 struct tsds_llist_arg
 {
   llist_t * llist;
@@ -76,12 +69,9 @@ void *
 tsds_llist_insert(void * arg)
 {
   tsds_llarg_t * llarg = (tsds_llarg_t *)arg;
-  unsigned int seed = llarg->data;
-
-  tsds_spin_r(seed);
+  tsds_spin(llarg->data);
   llist_insert(llarg->llist,
                llnode_create(llarg->data));
-
   return 0;
 }
 
@@ -89,13 +79,22 @@ void *
 tsds_llist_at(void * arg)
 {
   tsds_llarg_t * llarg = (tsds_llarg_t *)arg;
+  tsds_spin(llarg->data);
   return (void *)llist_at(llarg->llist, llarg->idx);
 }
 
-void
-tsds_spin_r(unsigned int seed)
+void *
+tsds_llist_get(void * arg)
 {
-  unsigned int const ITERS = 10000000;
+  tsds_llarg_t * llarg = (tsds_llarg_t *)arg;
+  tsds_spin(llarg->data);
+  return (void *)llist_get(llarg->llist, llarg->data);
+}
+
+void
+tsds_spin(unsigned int seed)
+{
+  unsigned int const ITERS = 1000000;
   seed = (unsigned int)(time(NULL)/(seed*ITERS + 1));
   int start = rand_r(&seed);
 
@@ -664,8 +663,7 @@ END_TEST
 
 START_TEST(test_mt_llist_at)
 {
-  int num;
-  int const NUM_LLNODES = 15;
+  int const NUM_LLNODES = 100;
 
   pthread_t threads[NUM_LLNODES];
   tsds_llarg_t llargs[NUM_LLNODES];
@@ -707,10 +705,70 @@ END_TEST
 
 START_TEST(test_mt_llist_get)
 {
-  int num;
-  int const NUM_LLNODES = 15;
+  int const NUM_ORDERS = 3; /* [ASC, DESC, NONE] */
+  int const NUM_LLNODES = 100;
   pthread_t threads[NUM_LLNODES];
-  llnode_t * cur;
+  tsds_llarg_t llargs[NUM_LLNODES];
+
+  int i;
+  for (i = 0; i < NUM_LLNODES; i++) 
+    llist_insert(llist, llnode_create(i)); 
+
+  ck_assert_uint_eq(llist->sz, NUM_LLNODES);
+
+  int order;
+  for (order = 0; order < NUM_ORDERS; order++)
+  {
+    llist_change_order(llist, order);
+
+    int j, r;
+    for (j = 0; j < NUM_LLNODES; j++)
+    {
+      llargs[j].llist = llist;
+      llargs[j].data = j;
+      llargs[j].idx = j;
+
+      if (j % 2 == 0)
+      {
+        r = pthread_create(&threads[j],
+                           NULL,
+                           &tsds_llist_get,
+                           (void *)&llargs[j]);
+        handle_error(r, "pthread_create");
+      }
+      else
+      {
+        r = pthread_create(&threads[j],
+                           NULL,
+                           &tsds_llist_insert,
+                           (void *)&llargs[j]);
+        handle_error(r, "pthread_create");
+      }
+    }
+
+    for (j = 0; j < NUM_LLNODES; j++)
+    {
+      if (j % 2 == 0)
+      {
+        void * vptr;
+        r = pthread_join(threads[j],&vptr);
+        handle_error(r, "pthread_join");
+        
+        llnode_t * llnode = (llnode_t *) vptr;
+        ck_assert_ptr_nonnull(llnode);
+        ck_assert_int_eq(llargs[j].data, llnode->data);
+      }
+      else
+      {
+        r = pthread_join(threads[j], NULL);
+        handle_error(r, "pthread_join");
+      }
+    }
+    // DEBUG
+    print(llist);
+  }
+  ck_assert_uint_eq(llist->sz, 
+                    NUM_LLNODES + (NUM_ORDERS*(NUM_LLNODES/2)));
 }
 END_TEST
 
@@ -724,6 +782,7 @@ llist_suite(void)
 
   tc_core = tcase_create("Core");
   tcase_add_checked_fixture(tc_core, setup, teardown);
+  tcase_set_timeout(tc_core, 0.0); /* Disables timeout */
 
   /* Single thread tests */
   tcase_add_test(tc_core, test_llist_size);
@@ -736,6 +795,7 @@ llist_suite(void)
   /* Multithreaded tests */
   tcase_add_test(tc_core, test_mt_llist_insert);
   tcase_add_test(tc_core, test_mt_llist_at);
+  tcase_add_test(tc_core, test_mt_llist_get);
 
   suite_add_tcase(suite, tc_core);
 
