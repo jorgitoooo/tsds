@@ -9,7 +9,7 @@
 
 /* Helper functions */
 static void _llist_init(llist_t *);
-static void _llist_init_with_order(llist_t *, order_type_t);
+static void _llist_init_with_llorder(llist_t *, llorder_type_t);
 static void _llist_insert_asc(llist_t *, llnode_t *);
 static void _llist_insert_desc(llist_t *, llnode_t *);
 static void _llist_insert_unordered(llist_t *, llnode_t *);
@@ -17,7 +17,7 @@ static void _llist_acquire_writers_lock(void);
 static void _llist_release_writers_lock(void);
 static void _llist_reverse(llist_t *);
 static void _llist_reorder_llnodes_in_llist(llist_t *, llnode_t **);
-static void _llist_sort(llist_t *, order_type_t);
+static void _llist_sort(llist_t *, llorder_type_t);
 static int _llist_asc_comparitor(void const *, void const *);
 static int _llist_desc_comparitor(void const *, void const *);
 static llnode_t * _llist_get_prev_llnode(llist_t *, int);
@@ -73,11 +73,12 @@ llnode_free(llnode_t * llnode)
   llnode->data = 0;
   llnode->next = NULL;
   free(llnode);
+  llnode = NULL;
 }
 
 llist_t *
 llist_create(void)
-/* Creates a new linked list with a default order_type_t
+/* Creates a new linked list with a default llorder_type_t
 ** of unordered.
 **/
 {
@@ -88,13 +89,13 @@ llist_create(void)
 }
 
 llist_t *
-llist_create_with_order(order_type_t order)
-/* Creates a new linked list with the specified order_type_t.
+llist_create_with_llorder(llorder_type_t order)
+/* Creates a new linked list with the specified llorder_type_t.
 **/
 {
   llist_t * llist = (llist_t *) malloc(sizeof(llist_t));
   if (llist)
-    _llist_init_with_order(llist, order);
+    _llist_init_with_llorder(llist, order);
   return llist;
 }
 
@@ -103,6 +104,11 @@ llist_free(llist_t * llist)
 /* Frees memory allocated for linked list.
 **/
 {
+  /* Avoids unnecessary locking/unlocking 
+     of mutexes */
+  if (llist == NULL)
+    return;
+
   pthread_mutex_lock(&mtx);
   pthread_mutex_lock(&w_mtx);
   if (llist)
@@ -115,7 +121,10 @@ llist_free(llist_t * llist)
       llnode_free(llnode_to_free);
     }
     llist->sz = 0;
+    llist->head = NULL;
+    llist->tail = NULL;
     free(llist);
+    llist = NULL;
   }
   pthread_mutex_unlock(&w_mtx);
   pthread_mutex_unlock(&mtx);
@@ -128,6 +137,11 @@ llist_insert(llist_t * llist, llnode_t * llnode)
 ** of the linked list by one.
 **/
 {
+  /* Avoids unnecessary locking/unlocking 
+     of mutexes */
+  if (llist == NULL)
+    return;
+
   pthread_mutex_lock(&mtx);
   pthread_mutex_lock(&w_mtx);
   if (llist && llnode)
@@ -153,6 +167,11 @@ llist_delete(llist_t * llist, int data)
 ** data and decrements linked list size by one.
 **/
 {
+  /* Avoids unnecessary locking/unlocking 
+     of mutexes */
+  if (llist == NULL)
+    return;
+
   pthread_mutex_lock(&mtx);
   pthread_mutex_lock(&w_mtx);
   if (llist)
@@ -177,12 +196,15 @@ llist_delete(llist_t * llist, int data)
 }
 
 void
-llist_sort(llist_t * llist, order_type_t order)
+llist_sort(llist_t * llist, llorder_type_t order)
 /* Sorts llist in the order specified by order. Does
 ** not modify the order of the llist itself.
 **/
 {
-  if (order == NONE)
+  /* Avoids unnecessary locking/unlocking 
+     of mutexes */
+  if (llist == NULL 
+      || order == NONE)
     return;
 
   pthread_mutex_lock(&mtx);
@@ -196,17 +218,22 @@ llist_sort(llist_t * llist, order_type_t order)
 }
 
 void
-llist_change_order(llist_t * llist, order_type_t order)
+llist_change_llorder(llist_t * llist, llorder_type_t order)
 /* Modifies the order of llist and reorders elements
 ** accordingly.
 **/
 {
+  /* Avoids unnecessary locking/unlocking 
+     of mutexes */
+  if (llist == NULL)
+    return;
+
   pthread_mutex_lock(&mtx);
   pthread_mutex_lock(&w_mtx);
 
   // DEBUG
   if (DEBUG)
-    puts("llist_change_order(llist_t * llist, order_type_t order)");
+    puts("llist_change_llorder(llist_t * llist, llorder_type_t order)");
 
   if (llist && llist->order != order)
   {
@@ -234,6 +261,11 @@ llist_at(llist_t * llist, size_t idx)
 ** bounds and llist is not NULL. Else, returns NULL.
 **/
 {
+  /* Avoids unnecessary locking/unlocking 
+     of mutexes */
+  if (llist == NULL)
+    return NULL;
+
   llnode_t * llnode = NULL;
   _llist_acquire_writers_lock();
   if (llist
@@ -253,6 +285,11 @@ llist_get(llist_t * llist, int data)
 ** NULL.
 **/
 {
+  /* Avoids unnecessary locking/unlocking 
+     of mutexes */
+  if (llist == NULL)
+    return NULL;
+
   _llist_acquire_writers_lock();
   llnode_t * llnode = NULL;
   if (llist)
@@ -271,7 +308,7 @@ llist_get(llist_t * llist, int data)
 
 static void 
 _llist_init(llist_t * llist)
-/* Initializes linked list and sets order_type_t to
+/* Initializes linked list and sets llorder_type_t to
 ** unordered. llist should always be a valid pointer.
 **/
 {
@@ -282,8 +319,8 @@ _llist_init(llist_t * llist)
 }
 
 static void 
-_llist_init_with_order(llist_t * llist, order_type_t order)
-/* Initializes linked list and sets order_type_t to
+_llist_init_with_llorder(llist_t * llist, llorder_type_t order)
+/* Initializes linked list and sets llorder_type_t to
 ** specified order. llist should always be a valid
 ** pointer.
 **/
@@ -472,7 +509,7 @@ _llist_reorder_llnodes_in_llist(llist_t * llist, llnode_t * llnodes[])
 }
 
 static void
-_llist_sort(llist_t * llist, order_type_t order)
+_llist_sort(llist_t * llist, llorder_type_t order)
 /* Sorts llist in the order specified by order. Uses
 ** qsort and ascending/descending comparitors to sort.
 ** Does not modify the order of the llist itself.
@@ -480,7 +517,7 @@ _llist_sort(llist_t * llist, order_type_t order)
 {
   // DEBUG
   if (DEBUG)
-    puts("_llist_sort(llist_t * llist, order_type_t order)");
+    puts("_llist_sort(llist_t * llist, llorder_type_t order)");
 
   if (llist->sz == 0)
     return;

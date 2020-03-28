@@ -40,8 +40,9 @@ teardown(void)
   llist_free(llist);
 }
 /*---------------------------------------*/
-/* Helper declarations                   */
+/* Helper functions declarations         */
 /*---------------------------------------*/
+int tsds_llist_has_llorder(llorder_type_t order);
 void tsds_ck_assert_llist_array_eq(llnode_t * llnode,
                                    int const * const data,
                                    int const sz);
@@ -55,7 +56,7 @@ void tsds_spin(unsigned int seed);
 void * tsds_llist_insert(void * arg);
 void * tsds_llist_at(void * arg);
 /*---------------------------------------*/
-/* Helper functions                      */
+/* Helper functions definitions          */
 /*---------------------------------------*/
 struct tsds_llist_arg
 {
@@ -145,6 +146,50 @@ tsds_ck_assert_llist_array_eq(llnode_t * llnode,
   }
 }
 
+int 
+tsds_llist_has_llorder(llorder_type_t order)
+{
+  int has_order = 1;
+  if (llist == NULL)
+    return has_order;
+  if (llist->order != order)
+    return !has_order;
+
+  llnode_t * cur = llist->head;
+  switch (order)
+  {
+    case ASC:
+      while (cur && cur->next)
+      {
+        if (cur->data > cur->next->data)
+        {
+          has_order = 0;
+          break;
+        }
+        cur = cur->next;
+      }
+      break;
+    case DESC:
+      while (cur && cur->next)
+      {
+        if (cur->data < cur->next->data)
+        {
+          has_order = 0;
+          break;
+        }
+        cur = cur->next;
+      }
+      break;
+    case NONE:
+    default:
+      break;
+  }
+  return has_order;
+}
+
+/*---------------------------------------*/
+/* Unit Tests                            */
+/*---------------------------------------*/
 START_TEST(test_llist_size)
 /* Tests for correct incrementing 
 ** and decrementing of linked list
@@ -162,25 +207,70 @@ START_TEST(test_llist_size)
   llist_insert(llist, n0);
   llist_insert(llist, n1);
   ck_assert_uint_eq(llist->sz, 2);
+  ck_assert_ptr_eq(
+      llist_get(llist, n0->data), 
+      n0);
+  ck_assert_ptr_eq(
+      llist_get(llist, n1->data), 
+      n1);
 
   llist_insert(llist, n2);
   llist_insert(llist, n3);
   ck_assert_uint_eq(llist->sz, 4);
+  ck_assert_ptr_eq(
+      llist_get(llist, n2->data), 
+      n2);
+  ck_assert_ptr_eq(
+      llist_get(llist, n3->data), 
+      n3);
 
   llist_delete(llist, 1);
   ck_assert_uint_eq(llist->sz, 3);
+  ck_assert_ptr_eq(
+      llist_get(llist, n0->data), 
+      n0);
+  ck_assert_ptr_eq(
+      llist_get(llist, n2->data), 
+      n2);
+  ck_assert_ptr_eq(
+      llist_get(llist, n3->data), 
+      n3);
 
   llist_delete(llist, 1);
   ck_assert_uint_eq(llist->sz, 3);
+  ck_assert_ptr_eq(
+      llist_get(llist, n0->data), 
+      n0);
+  ck_assert_ptr_eq(
+      llist_get(llist, n2->data), 
+      n2);
+  ck_assert_ptr_eq(
+      llist_get(llist, n3->data), 
+      n3);
 
   llist_delete(llist, 4);
   ck_assert_uint_eq(llist->sz, 2);
+  ck_assert_ptr_eq(
+      llist_get(llist, n0->data), 
+      n0);
+  ck_assert_ptr_eq(
+      llist_get(llist, n3->data), 
+      n3);
 
   llist_delete(llist, 2);
   ck_assert_uint_eq(llist->sz, 2);
+  ck_assert_ptr_eq(
+      llist_get(llist, n0->data), 
+      n0);
+  ck_assert_ptr_eq(
+      llist_get(llist, n3->data), 
+      n3);
 
   llist_delete(llist, -8);
   ck_assert_uint_eq(llist->sz, 1);
+  ck_assert_ptr_eq(
+      llist_get(llist, n0->data), 
+      n0);
 
   llist_delete(llist, 0);
   ck_assert_uint_eq(llist->sz, 0);
@@ -192,6 +282,32 @@ START_TEST(test_llist_size)
   ck_assert_uint_eq(llist->sz, 0);
 }
 END_TEST
+
+START_TEST(test_llist_create_with_llorder)
+/* Tests that llist_create_with_llorder() creates
+** a new llist with the specified order.
+**/
+{
+  int const NUM_ORDERS = 3; /* [ASC, DESC, NONE */
+
+  llist_free(llist);
+
+  int order, data;
+  for (order = data = 0; 
+       order < NUM_ORDERS;
+       order++, data = 0)
+  {
+    llist = llist_create_with_llorder(order);
+    llist_insert(llist, llnode_create(data++));
+    llist_insert(llist, llnode_create(data++));
+    llist_insert(llist, llnode_create(data++));
+
+    ck_assert_int_eq(tsds_llist_has_llorder(order), 1);
+
+    if (order < NUM_ORDERS - 1)
+      llist_free(llist);
+  }
+}
 
 START_TEST(test_llist_head_tail)
 /* Tests that head and tail pointers
@@ -375,7 +491,7 @@ START_TEST(test_llist_sort)
     llist_insert(llist, 
                  llnode_create(data_unordered[i]));
 
-  order_type_t llorder = llist->order;
+  llorder_type_t llorder = llist->order;
 
   /* Sort in NONE order */
   llist_sort(llist, NONE);
@@ -467,8 +583,8 @@ START_TEST(test_llist_sort)
 }
 END_TEST
 
-START_TEST(test_llist_change_order)
-/* Tests the llist_change_order(...) function works
+START_TEST(test_llist_change_llorder)
+/* Tests the llist_change_llorder(...) function works
 ** properly. Ensures that elements are ordered in
 ** the specified order.
 **/
@@ -477,7 +593,7 @@ START_TEST(test_llist_change_order)
   int const data_desc[] = {64,32,16,8,4,2,1};
   int const data_unordered[] = {16,2,8,32,1,64,4};
   int const NUM_LLNODES = 7;
-  order_type_t prev_order;
+  llorder_type_t prev_order;
 
   int i;
   for (i = 0; i < NUM_LLNODES; i++)
@@ -486,7 +602,7 @@ START_TEST(test_llist_change_order)
 
   /* Change order to NONE to NONE */
   prev_order = llist->order;
-  llist_change_order(llist, NONE);
+  llist_change_llorder(llist, NONE);
   ck_assert_int_eq(llist->order, NONE);
   ck_assert_int_eq(llist->order, prev_order);
   ck_assert_ptr_nonnull(llist->head->next);
@@ -497,7 +613,7 @@ START_TEST(test_llist_change_order)
 
   /* Change order from NONE to DESC */
   prev_order = llist->order;
-  llist_change_order(llist, DESC);
+  llist_change_llorder(llist, DESC);
   ck_assert_int_eq(llist->order, DESC);
   ck_assert_int_ne(llist->order, prev_order);
   ck_assert_ptr_nonnull(llist->head->next);
@@ -508,7 +624,7 @@ START_TEST(test_llist_change_order)
 
   /* Change order from DESC to ASC */
   prev_order = llist->order;
-  llist_change_order(llist, ASC);
+  llist_change_llorder(llist, ASC);
   ck_assert_int_eq(llist->order, ASC);
   ck_assert_int_ne(llist->order, prev_order);
   ck_assert_ptr_nonnull(llist->head->next);
@@ -519,7 +635,7 @@ START_TEST(test_llist_change_order)
 
   /* Change order from ASC to NONE */
   prev_order = llist->order;
-  llist_change_order(llist, NONE);
+  llist_change_llorder(llist, NONE);
   ck_assert_int_eq(llist->order, NONE);
   ck_assert_int_ne(llist->order, prev_order);
   ck_assert_ptr_nonnull(llist->head->next);
@@ -548,7 +664,7 @@ START_TEST(test_llist_change_order)
   ck_assert_ptr_eq(llist->head, llist_get(llist, 4));
   ck_assert_ptr_eq(llist->tail, llist_get(llist, 2));
 
-  llist_change_order(llist, ASC); /* [2,4] */
+  llist_change_llorder(llist, ASC); /* [2,4] */
 
   ck_assert_ptr_nonnull(llist_at(llist, 0));
   ck_assert_ptr_nonnull(llist_at(llist, 1));
@@ -563,7 +679,7 @@ START_TEST(test_llist_change_order)
   ck_assert_int_eq(llist->sz, 1);
   ck_assert_ptr_nonnull(llist_at(llist, 0));
 
-  llist_change_order(llist, DESC); /* [4] */
+  llist_change_llorder(llist, DESC); /* [4] */
   ck_assert_int_eq(llist_at(llist, 0)->data, 4);
   ck_assert_ptr_eq(llist->head, llist_get(llist, 4));
   ck_assert_ptr_eq(llist->tail, llist_get(llist, 4));
@@ -574,7 +690,7 @@ START_TEST(test_llist_change_order)
   ck_assert_int_eq(llist->sz, 0);
   ck_assert_ptr_null(llist_at(llist, 0));
 
-  llist_change_order(llist, ASC);
+  llist_change_llorder(llist, ASC);
   ck_assert_ptr_null(llist_at(llist, 0));
   ck_assert_ptr_null(llist->head);
   ck_assert_ptr_null(llist->tail);
@@ -585,7 +701,7 @@ START_TEST(test_llist_change_order)
 
   ck_assert_ptr_null(llist);
 
-  llist_change_order(llist, DESC);
+  llist_change_llorder(llist, DESC);
   ck_assert_ptr_null(llist_at(llist, 0));
 
 }
@@ -668,7 +784,7 @@ START_TEST(test_mt_llist_at)
   pthread_t threads[NUM_LLNODES];
   tsds_llarg_t llargs[NUM_LLNODES];
 
-  llist_change_order(llist, ASC);
+  llist_change_llorder(llist, ASC);
 
   int i, r;
   /* Insert llnodes [0, NUM_LLNODES) in llist */
@@ -719,7 +835,8 @@ START_TEST(test_mt_llist_get)
   int order;
   for (order = 0; order < NUM_ORDERS; order++)
   {
-    llist_change_order(llist, order);
+    llist_change_llorder(llist, order);
+    ck_assert_int_eq(tsds_llist_has_llorder(order), 1);
 
     int j, r;
     for (j = 0; j < NUM_LLNODES; j++)
@@ -764,8 +881,6 @@ START_TEST(test_mt_llist_get)
         handle_error(r, "pthread_join");
       }
     }
-    // DEBUG
-    print(llist);
   }
   ck_assert_uint_eq(llist->sz, 
                     NUM_LLNODES + (NUM_ORDERS*(NUM_LLNODES/2)));
@@ -784,13 +899,14 @@ llist_suite(void)
   tcase_add_checked_fixture(tc_core, setup, teardown);
   tcase_set_timeout(tc_core, 0.0); /* Disables timeout */
 
-  /* Single thread tests */
+  /* Single threaded tests */
   tcase_add_test(tc_core, test_llist_size);
+  tcase_add_test(tc_core, test_llist_create_with_llorder);
   tcase_add_test(tc_core, test_llist_head_tail);
   tcase_add_test(tc_core, test_llist_at);
   tcase_add_test(tc_core, test_llist_get);
   tcase_add_test(tc_core, test_llist_sort);
-  tcase_add_test(tc_core, test_llist_change_order);
+  tcase_add_test(tc_core, test_llist_change_llorder);
 
   /* Multithreaded tests */
   tcase_add_test(tc_core, test_mt_llist_insert);
