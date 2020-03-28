@@ -248,7 +248,7 @@ START_TEST(test_llist_head_tail)
 }
 END_TEST 
 
-START_TEST(test_llist_index_into_llist)
+START_TEST(test_llist_at)
 /* Tests that the llist_at(...) function
 ** returns either the correct llnode residing
 ** at the specified index or NULL if index
@@ -271,19 +271,40 @@ START_TEST(test_llist_index_into_llist)
   for (i = 0; i < NUM_LLNODES; i++)
     ck_assert_ptr_eq(llist_at(llist, i), llnodes[i]);
 
+  /* Edge cases:
+  **  1. llist->sz = 1
+  **  2. llist->sz = 0
+  **  3. llist = NULL
+  ***/
+  llist_free(llist);
+  llist = llist_create();
+  llist_insert(llist, llnode_create(2)); /* [2] */
+
+  /* Edge case 1 */
+  ck_assert_int_eq(llist->sz, 1);
+  ck_assert_ptr_nonnull(llist_at(llist,0));
+  ck_assert_int_eq(llist_at(llist,0)->data, 2);
   ck_assert_ptr_null(llist_at(llist, -1));
-  ck_assert_ptr_null(llist_at(llist, NUM_LLNODES));
+  ck_assert_ptr_null(llist_at(llist, 1));
+
+  /* Edge case 2 */
+  llist_delete(llist, 2); /* [] */
+  ck_assert_int_eq(llist->sz, 0);
+  ck_assert_ptr_null(llist_at(llist, 0));
+
+  /* Edge case 3 */
+  llist_free(llist);
+  llist = NULL;
+  ck_assert_ptr_null(llist);
+  ck_assert_ptr_null(llist_at(llist, 0));
 }
 END_TEST
 
-START_TEST(test_llist_get_element)
+START_TEST(test_llist_get)
 /* Tests that the llist_get(...) function
 ** returns either the correct llnode containing
 ** specified data or NULL if no llnodes contain
 ** the data.
-** TODO: Add edge cases.
-**        1. llist->sz is 1
-**        2. llist is null
 **/
 {
   int const NUM_LLNODES = 30;
@@ -310,8 +331,31 @@ START_TEST(test_llist_get_element)
                      llnodes[i]->data);
   }
 
+  /* Edge cases:
+  **  1. llist->sz = 1
+  **  2. llist->sz = 0
+  **  3. llist = NULL
+  ***/
+  llist_free(llist);
+  llist = llist_create();
+  llist_insert(llist, llnode_create(0)); /* [0] */
+
+  /* Edge case 1 */
+  ck_assert_int_eq(llist->sz, 1);
+  ck_assert_ptr_nonnull(llist_get(llist,0));
   ck_assert_ptr_null(llist_get(llist, -1));
-  ck_assert_ptr_null(llist_get(llist, NUM_LLNODES));
+  ck_assert_ptr_null(llist_get(llist, 1));
+
+  /* Edge case 2 */
+  llist_delete(llist, 0); /* [] */
+  ck_assert_int_eq(llist->sz, 0);
+  ck_assert_ptr_null(llist_get(llist, 0));
+
+  /* Edge case 3 */
+  llist_free(llist);
+  llist = NULL;
+  ck_assert_ptr_null(llist);
+  ck_assert_ptr_null(llist_get(llist, 0));
 }
 END_TEST
 
@@ -319,9 +363,6 @@ START_TEST(test_llist_sort)
 /* Tests the llist_sort(...) function works properly.
 ** Ensures that elements are sorted in the specified
 ** order.
-** TODO: Add edge cases.
-**        1. llist->sz is 0 or 1
-**        2. llist is null
 **/
 {
   int const data_asc[] = {1,2,4,8,16,32,64};
@@ -363,6 +404,67 @@ START_TEST(test_llist_sort)
   tsds_ck_assert_llist_array_eq(llist->head,
                                 data_desc,
                                 NUM_LLNODES);
+
+  /* Edge cases:
+  **  1. llist->sz = 2
+  **  2. llist->sz = 1
+  **  3. llist->sz = 0
+  **  4. llist = NULL
+  ***/
+  llist_free(llist);
+  llist = llist_create();
+
+  /* Edge case 1: */
+  llist_insert(llist, llnode_create(4));
+  llist_insert(llist, llnode_create(2)); /* [4,2] */
+
+  ck_assert_int_eq(llist->sz, 2);
+  ck_assert_ptr_nonnull(llist_at(llist, 0));
+  ck_assert_ptr_nonnull(llist_at(llist, 1));
+  ck_assert_int_eq(llist_at(llist, 0)->data, 4);
+  ck_assert_int_eq(llist_at(llist, 1)->data, 2);
+  ck_assert_ptr_eq(llist->head, llist_get(llist, 4));
+  ck_assert_ptr_eq(llist->tail, llist_get(llist, 2));
+
+  llist_sort(llist, ASC); /* [2,4] */
+
+  ck_assert_ptr_nonnull(llist_at(llist, 0));
+  ck_assert_ptr_nonnull(llist_at(llist, 1));
+  ck_assert_int_eq(llist_at(llist, 0)->data, 2);
+  ck_assert_int_eq(llist_at(llist, 1)->data, 4);
+  ck_assert_ptr_eq(llist->head, llist_get(llist, 2));
+  ck_assert_ptr_eq(llist->tail, llist_get(llist, 4));
+
+  /* Edge case 2: */
+  llist_delete(llist, 2); /* [4] */
+
+  ck_assert_int_eq(llist->sz, 1);
+  ck_assert_ptr_nonnull(llist_at(llist, 0));
+
+  llist_sort(llist, DESC); /* [4] */
+  ck_assert_int_eq(llist_at(llist, 0)->data, 4);
+  ck_assert_ptr_eq(llist->head, llist_get(llist, 4));
+  ck_assert_ptr_eq(llist->tail, llist_get(llist, 4));
+
+  /* Edge case 3: */
+  llist_delete(llist, 4); /* [] */
+  
+  ck_assert_int_eq(llist->sz, 0);
+  ck_assert_ptr_null(llist_at(llist, 0));
+
+  llist_sort(llist, ASC);
+  ck_assert_ptr_null(llist_at(llist, 0));
+  ck_assert_ptr_null(llist->head);
+  ck_assert_ptr_null(llist->tail);
+
+  /* Edge case 4: */
+  llist_free(llist);
+  llist = NULL;
+
+  ck_assert_ptr_null(llist);
+
+  llist_sort(llist, DESC);
+  ck_assert_ptr_null(llist_at(llist, 0));
 }
 END_TEST
 
@@ -370,9 +472,6 @@ START_TEST(test_llist_change_order)
 /* Tests the llist_change_order(...) function works
 ** properly. Ensures that elements are ordered in
 ** the specified order.
-** TODO: Add edge cases.
-**        1. llist->sz is 0 or 1
-**        2. llist is null
 **/
 {
   int const data_asc[] = {1,2,4,8,16,32,64};
@@ -429,6 +528,67 @@ START_TEST(test_llist_change_order)
   tsds_ck_assert_llist_array_eq(llist->head,
                                 data_asc,
                                 NUM_LLNODES);
+  /* Edge cases:
+  **  1. llist->sz = 2
+  **  2. llist->sz = 1
+  **  3. llist->sz = 0
+  **  4. llist = NULL
+  ***/
+  llist_free(llist);
+  llist = llist_create();
+
+  /* Edge case 1: */
+  llist_insert(llist, llnode_create(4));
+  llist_insert(llist, llnode_create(2)); /* [4,2] */
+
+  ck_assert_int_eq(llist->sz, 2);
+  ck_assert_ptr_nonnull(llist_at(llist, 0));
+  ck_assert_ptr_nonnull(llist_at(llist, 1));
+  ck_assert_int_eq(llist_at(llist, 0)->data, 4);
+  ck_assert_int_eq(llist_at(llist, 1)->data, 2);
+  ck_assert_ptr_eq(llist->head, llist_get(llist, 4));
+  ck_assert_ptr_eq(llist->tail, llist_get(llist, 2));
+
+  llist_change_order(llist, ASC); /* [2,4] */
+
+  ck_assert_ptr_nonnull(llist_at(llist, 0));
+  ck_assert_ptr_nonnull(llist_at(llist, 1));
+  ck_assert_int_eq(llist_at(llist, 0)->data, 2);
+  ck_assert_int_eq(llist_at(llist, 1)->data, 4);
+  ck_assert_ptr_eq(llist->head, llist_get(llist, 2));
+  ck_assert_ptr_eq(llist->tail, llist_get(llist, 4));
+
+  /* Edge case 2: */
+  llist_delete(llist, 2); /* [4] */
+
+  ck_assert_int_eq(llist->sz, 1);
+  ck_assert_ptr_nonnull(llist_at(llist, 0));
+
+  llist_change_order(llist, DESC); /* [4] */
+  ck_assert_int_eq(llist_at(llist, 0)->data, 4);
+  ck_assert_ptr_eq(llist->head, llist_get(llist, 4));
+  ck_assert_ptr_eq(llist->tail, llist_get(llist, 4));
+
+  /* Edge case 3: */
+  llist_delete(llist, 4); /* [] */
+  
+  ck_assert_int_eq(llist->sz, 0);
+  ck_assert_ptr_null(llist_at(llist, 0));
+
+  llist_change_order(llist, ASC);
+  ck_assert_ptr_null(llist_at(llist, 0));
+  ck_assert_ptr_null(llist->head);
+  ck_assert_ptr_null(llist->tail);
+
+  /* Edge case 4: */
+  llist_free(llist);
+  llist = NULL;
+
+  ck_assert_ptr_null(llist);
+
+  llist_change_order(llist, DESC);
+  ck_assert_ptr_null(llist_at(llist, 0));
+
 }
 END_TEST
 
@@ -568,8 +728,8 @@ llist_suite(void)
   /* Single thread tests */
   tcase_add_test(tc_core, test_llist_size);
   tcase_add_test(tc_core, test_llist_head_tail);
-  tcase_add_test(tc_core, test_llist_index_into_llist);
-  tcase_add_test(tc_core, test_llist_get_element);
+  tcase_add_test(tc_core, test_llist_at);
+  tcase_add_test(tc_core, test_llist_get);
   tcase_add_test(tc_core, test_llist_sort);
   tcase_add_test(tc_core, test_llist_change_order);
 
