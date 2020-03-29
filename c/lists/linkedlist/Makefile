@@ -1,29 +1,29 @@
-CC = gcc
+CC = clang
 CFlags = -g -pthread -Wall 
 DL_FLAGS = -lcheck
 
-EXEC = exec
 CHECK_TEST = check_test
 
 LIB_OBJS = llist.o utils.o
-OBJS = main.o $(LIB_OBJS)
 CHECK_OBJS = check_llist.o $(LIB_OBJS)
-ALL_OBJS = main.o check_llist.o $(LIB_OBJS)
+ALL_OBJS = check_llist.o $(LIB_OBJS)
 
 SRC_DIR_PATH = ./src
 TEST_DIR_PATH = ./tests
 
-$(EXEC): $(OBJS)
-	$(CC) $(CFLAGS) -o $(EXEC) $(OBJS)
+default: check
 
-main.o: main.c
-	$(CC) $(CFLAGS) -c main.c
-
+#-----------------#
+# Objects         #
+#-----------------#
 llist.o: $(SRC_DIR_PATH)/llist.c
 	$(CC) $(CFLAGS) -c $(SRC_DIR_PATH)/llist.c
 
 utils.o: $(SRC_DIR_PATH)/utils.c
 	$(CC) $(CFLAGS) -c $(SRC_DIR_PATH)/utils.c
+
+check_llist.o: $(TEST_DIR_PATH)/check_llist.c
+	$(CC) $(CFLAGS) -c $(TEST_DIR_PATH)/check_llist.c
 
 #-----------------#
 # Unit Test Build #
@@ -31,14 +31,11 @@ utils.o: $(SRC_DIR_PATH)/utils.c
 check: $(CHECK_OBJS)
 	$(CC) $(CFLAGS) $(DL_FLAGS) -o $(CHECK_TEST) $(CHECK_OBJS) 
 
-check_llist.o: $(TEST_DIR_PATH)/check_llist.c
-	$(CC) $(CFLAGS) -c $(TEST_DIR_PATH)/check_llist.c
-
 #-----------------#
 # Memory Tests    #
 #-----------------#
-memtest: $(EXEC)
-	valgrind --leak-check=full $(EXEC)
+memtest: check
+	valgrind --leak-check=full $(CHECK_TEST)
 
 # .PHONY is a built-in target name used to declare phony targets.
 # A phony target is one whose recipe does not generate a target file.
@@ -48,4 +45,4 @@ memtest: $(EXEC)
 # The hyphen is used to ignore errors in commands
 # - https://stackoverflow.com/questions/2670130/make-how-to-continue-after-a-command-fails
 clean:
-	-rm $(EXEC) $(CHECK_TEST) $(ALL_OBJS)
+	-rm $(CHECK_TEST) $(ALL_OBJS)

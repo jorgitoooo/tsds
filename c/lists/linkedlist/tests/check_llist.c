@@ -17,7 +17,7 @@
 /*---------------------------------------*/
 /* Typedefs                              */
 /*---------------------------------------*/
-typedef void * (*llist_func_t)(void *);
+typedef void * (*tsds_func_t)(void *);
 typedef struct tsds_llist_arg tsds_llarg_t;
 
 /*---------------------------------------*/
@@ -46,12 +46,12 @@ int tsds_llist_has_llorder(llorder_type_t order);
 void tsds_ck_assert_llist_array_eq(llnode_t * llnode,
                                    int const * const data,
                                    int const sz);
-void tsds_create_threads(pthread_t * threads, 
-                         llist_func_t func, 
-                         tsds_llarg_t * llargs, 
-                         int const NUM_LLNODES);
-void tsds_join_threads(pthread_t * threads,
-                       int const NUM_THREADS);
+void tsds_create_nthreads(pthread_t * threads, 
+                          tsds_func_t func, 
+                          tsds_llarg_t * llargs, 
+                          int const num_threads);
+void tsds_join_nthreads(pthread_t * threads,
+                        int const num_threads);
 void tsds_spin(unsigned int seed);
 void * tsds_llist_insert(void * arg);
 void * tsds_llist_at(void * arg);
@@ -104,11 +104,11 @@ tsds_spin(unsigned int seed)
 }
 
 void
-tsds_join_threads(pthread_t * threads,
-                  int const NUM_THREADS)
+tsds_join_nthreads(pthread_t * threads,
+                   int const num_threads)
 {
   int i, r;
-  for (i = 0; i < NUM_THREADS; i++)
+  for (i = 0; i < num_threads; i++)
   {
     r = pthread_join(threads[i], NULL);
     handle_error(r, "pthread_join");
@@ -116,13 +116,13 @@ tsds_join_threads(pthread_t * threads,
 }
 
 void
-tsds_create_threads(pthread_t * threads, 
-                    llist_func_t func, 
-                    tsds_llarg_t * llargs, 
-                    int const NUM_LLNODES)
+tsds_create_nthreads(pthread_t * threads, 
+                     tsds_func_t func, 
+                     tsds_llarg_t * llargs, 
+                     int const num_threads)
 {
   int i, r;
-  for (i = 0; i < NUM_LLNODES; i++)
+  for (i = 0; i < num_threads; i++)
   {
     r = pthread_create(&threads[i], NULL,
                        &(*func),
@@ -727,11 +727,11 @@ START_TEST(test_mt_llist_insert)
   }
 
   llist->order = ASC;
-  tsds_create_threads(threads, 
-                      tsds_llist_insert, 
-                      llargs, 
-                      NUM_LLNODES);
-  tsds_join_threads(threads, NUM_LLNODES);
+  tsds_create_nthreads(threads, 
+                       tsds_llist_insert, 
+                       llargs, 
+                       NUM_LLNODES);
+  tsds_join_nthreads(threads, NUM_LLNODES);
   ck_assert_uint_eq(llist->sz, NUM_LLNODES);
 
   num = 0;
@@ -758,11 +758,11 @@ START_TEST(test_mt_llist_insert)
   }
 
   llist->order = DESC;
-  tsds_create_threads(threads, 
-                      tsds_llist_insert, 
-                      llargs, 
-                      NUM_LLNODES);
-  tsds_join_threads(threads, NUM_LLNODES);
+  tsds_create_nthreads(threads, 
+                       tsds_llist_insert, 
+                       llargs, 
+                       NUM_LLNODES);
+  tsds_join_nthreads(threads, NUM_LLNODES);
   ck_assert_uint_eq(llist->sz, NUM_LLNODES);
 
   num = NUM_LLNODES - 1;
@@ -800,10 +800,10 @@ START_TEST(test_mt_llist_at)
     llargs[i].llist = llist;
     llargs[i].idx = i;
   }
-  tsds_create_threads(threads,
-                      tsds_llist_at,
-                      llargs,
-                      NUM_LLNODES);
+  tsds_create_nthreads(threads,
+                       tsds_llist_at,
+                       llargs,
+                       NUM_LLNODES);
 
   /* join threads and assert that the correct
      llnodes have been retreived */
