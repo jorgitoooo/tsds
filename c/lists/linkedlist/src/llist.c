@@ -7,7 +7,9 @@
 
 #define DEBUG 0
 
-/* Helper functions */
+/*-----------------------------------*/
+/* Helper Functions Declarations     */
+/*-----------------------------------*/
 static void _llist_init(llist_t *);
 static void _llist_init_with_llorder(llist_t *, llorder_type_t);
 static void _llist_insert_asc(llist_t *, llnode_t *);
@@ -457,6 +459,7 @@ _llist_release_writers_lock(void)
 
     /* Only thread that locked w_mtx can unlock it */
     pthread_mutex_unlock(&w_mtx); 
+
     reader.cnt--;
     reader.entered = 0; /* No readers reading */
   }

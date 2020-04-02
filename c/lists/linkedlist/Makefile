@@ -1,6 +1,10 @@
 CC = clang
+
+# Flags needed for code coverage
+# CFlags = -fprofile-instr-generate -fcoverage-mapping -g -pthread -Wall 
+
 CFlags = -g -pthread -Wall 
-DL_FLAGS = -lcheck
+LDFLAGS = -lcheck 
 
 CHECK_TEST = check_test
 
@@ -29,7 +33,10 @@ check_llist.o: $(TEST_DIR_PATH)/check_llist.c
 # Unit Test Build #
 #-----------------#
 check: $(CHECK_OBJS)
-	$(CC) $(CFLAGS) $(DL_FLAGS) -o $(CHECK_TEST) $(CHECK_OBJS) 
+	$(CC) $(CFLAGS) $(LDFLAGS) $(CHECK_OBJS) -o $(CHECK_TEST)
+
+ckcov: $(CHECK_OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(CHECK_OBJS) -o $(CHECK_TEST)
 
 #-----------------#
 # Memory Tests    #

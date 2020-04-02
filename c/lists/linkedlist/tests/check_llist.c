@@ -26,21 +26,7 @@ typedef struct tsds_llist_arg tsds_llarg_t;
 llist_t * llist;
 
 /*---------------------------------------*/
-/* Test fixtures                         */
-/*---------------------------------------*/
-void
-setup(void)
-{
-  llist = llist_create();
-}
-
-void
-teardown(void)
-{
-  llist_free(llist);
-}
-/*---------------------------------------*/
-/* Helper functions declarations         */
+/* Helper function declarations          */
 /*---------------------------------------*/
 int tsds_llist_has_llorder(llorder_type_t order);
 void tsds_ck_assert_llist_array_eq(llnode_t * llnode,
@@ -55,8 +41,24 @@ void tsds_join_nthreads(pthread_t * threads,
 void tsds_spin(unsigned int seed);
 void * tsds_llist_insert(void * arg);
 void * tsds_llist_at(void * arg);
+
 /*---------------------------------------*/
-/* Helper functions definitions          */
+/* Test fixtures                         */
+/*---------------------------------------*/
+void
+setup(void)
+{
+  llist = llist_create();
+}
+
+void
+teardown(void)
+{
+  llist_free(llist);
+}
+
+/*---------------------------------------*/
+/* Helper function definitions           */
 /*---------------------------------------*/
 struct tsds_llist_arg
 {
@@ -709,8 +711,8 @@ END_TEST
 
 START_TEST(test_mt_llist_insert)
 /* Tests the thread-safety of the llist_insert(...)
-** function. Both insertion in ascending and descending
-** order.
+** function. Insertion is done in both ascending and
+** descending order.
 **/
 {
   int num;
@@ -747,10 +749,6 @@ START_TEST(test_mt_llist_insert)
   llist_free(llist);
   llist = llist_create();
 
-  /* TODO: May need to create an args init func. 
-  **       Or just remove the llist member from
-  **       tsds_llarg_t.
-  ***/
   for (i = 0; i < NUM_LLNODES; i++)
   {
     llargs[i].llist = llist;
@@ -778,6 +776,11 @@ START_TEST(test_mt_llist_insert)
 END_TEST
 
 START_TEST(test_mt_llist_at)
+/* Tests the thread-safety of llist_at() function.
+** Inserts NUM_LLNODES nodes into llist and then
+** spawns NUM_LLNODES number of threads. Each thread
+** retrieves a unique node in parallel.
+**/
 {
   int const NUM_LLNODES = 100;
 
@@ -820,6 +823,12 @@ START_TEST(test_mt_llist_at)
 END_TEST
 
 START_TEST(test_mt_llist_get)
+/* Tests thread-safety of llist_get() function.
+** Inserts NUM_LLNODES nodes into llist and then
+** spawns NUM_LLNODES number of threads. Half of
+** the threads spawned will retrieve a unique node
+** while the rest will insert a node.
+**/
 {
   int const NUM_ORDERS = 3; /* [ASC, DESC, NONE] */
   int const NUM_LLNODES = 100;
